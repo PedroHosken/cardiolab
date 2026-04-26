@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
-export async function markBatchPaid(batchId: string) {
+export async function markBatchPaid(formData: FormData) {
+  const batchId = formData.get("batchId") as string;
+  const studyId = formData.get("studyId") as string;
+  if (!batchId) throw new Error("Lote invalido");
+
   const batch = await prisma.batch.findUnique({ where: { id: batchId } });
   if (!batch) throw new Error("Lote nao encontrado");
 
@@ -33,49 +37,24 @@ export async function markBatchPaid(batchId: string) {
     });
   });
 
-  revalidatePath("/lotes");
-  revalidatePath(`/lotes/${batchId}`);
-  revalidatePath("/lancamentos");
+  revalidatePath(`/pesquisas/${studyId}/lotes`);
+  revalidatePath(`/pesquisas/${studyId}/lotes/${batchId}`);
+  revalidatePath(`/pesquisas/${studyId}/lancamentos`);
   revalidatePath("/");
-}
-
-export async function holdLine(lineId: string, reason: string) {
-  const line = await prisma.billableLine.findUnique({ where: { id: lineId } });
-  if (!line) throw new Error("Linha nao encontrada");
-
-  await prisma.$transaction(async (tx) => {
-    await tx.billableLine.update({
-      where: { id: lineId },
-      data: { status: "HELD", holdReason: reason },
-    });
-    await tx.auditLog.create({
-      data: {
-        entity: "BillableLine",
-        entityId: lineId,
-        action: "STATUS_CHANGE",
-        before: JSON.stringify({ status: line.status }),
-        after: JSON.stringify({ status: "HELD", holdReason: reason }),
-      },
-    });
-  });
-
-  revalidatePath("/lancamentos");
-  revalidatePath("/lotes");
 }
 
 export async function generatePendingBatch(formData: FormData) {
   const studyId = formData.get("studyId") as string;
   const referenceMonth = (formData.get("referenceMonth") as string) || null;
-  if (!studyId) throw new Error("Selecione uma pesquisa");
+  if (!studyId) throw new Error("Pesquisa invalida");
 
-  // Reune linhas READY (e HELD se reaprovado para reentrar) que nao estao em batch
   const lines = await prisma.billableLine.findMany({
     where: {
       status: "READY",
       batchId: null,
       OR: [
         { subject: { studyId } },
-        { AND: [{ subjectId: null }, { batchId: null }] }, // itens fixos sem subject
+        { AND: [{ subjectId: null }, { batchId: null }] },
       ],
     },
   });
@@ -84,7 +63,6 @@ export async function generatePendingBatch(formData: FormData) {
     throw new Error("Nenhuma linha pronta para faturamento.");
   }
 
-  // numero do lote
   const lastBatch = await prisma.batch.findFirst({
     where: { studyId },
     orderBy: { createdAt: "desc" },
@@ -128,7 +106,7 @@ export async function generatePendingBatch(formData: FormData) {
     });
   });
 
-  revalidatePath("/lotes");
-  revalidatePath("/lancamentos");
-  redirect(`/lotes/${newBatchId}`);
+  revalidatePath(`/pesquisas/${studyId}/lotes`);
+  revalidatePath(`/pesquisas/${studyId}/lancamentos`);
+  redirect(`/pesquisas/${studyId}/lotes/${newBatchId}`);
 }

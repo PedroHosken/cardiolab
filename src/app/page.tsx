@@ -79,7 +79,7 @@ export default async function DashboardPage() {
                     </Link>
                   </Td>
                   <Td>{s.shortTitle ?? s.title}</Td>
-                  <Td>{s.sponsor.name}</Td>
+                  <Td>{s.sponsor?.name ?? "-"}</Td>
                   <Td><StatusPill status={s.status} /></Td>
                 </tr>
               ))}

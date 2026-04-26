@@ -1,6 +1,6 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/PageHeader";
 import { Card, StatCard, Th, Td } from "@/components/Card";
 import { StatusPill } from "@/components/StatusPill";
 import { formatDate, formatMoney, kindLabel } from "@/lib/format";
@@ -8,13 +8,12 @@ import { formatDate, formatMoney, kindLabel } from "@/lib/format";
 export default async function SubjectDetail({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string; subjectId: string }>;
 }) {
-  const { id } = await params;
-  const subject = await prisma.subject.findUnique({
-    where: { id },
+  const { id, subjectId } = await params;
+  const subject = await prisma.subject.findFirst({
+    where: { id: subjectId, studyId: id },
     include: {
-      study: { include: { sponsor: true } },
       visits: {
         include: { visitTemplate: true },
         orderBy: { visitTemplate: { orderIndex: "asc" } },
@@ -29,25 +28,42 @@ export default async function SubjectDetail({
 
   const total = subject.billableLines.reduce((s, l) => s + l.grossAmount, 0);
   const totalNet = subject.billableLines.reduce((s, l) => s + l.netAmount, 0);
-  const totalPaid = subject.billableLines.filter((l) => l.status === "PAID").reduce((s, l) => s + l.netAmount, 0);
+  const totalPaid = subject.billableLines
+    .filter((l) => l.status === "PAID")
+    .reduce((s, l) => s + l.netAmount, 0);
 
   return (
     <>
-      <PageHeader
-        title={`Paciente ${subject.subjectCode}`}
-        description={`Pesquisa ${subject.study.protocolNumber} · ${subject.study.shortTitle ?? ""}`}
-      />
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-        <StatCard label="Status" value={subject.status} tone={subject.status === "ACTIVE" ? "success" : "warning"} />
-        <StatCard label="Visitas concluidas" value={String(subject.visits.filter((v) => v.status === "COMPLETED").length)} sub={`${subject.visits.length} agendadas`} />
-        <StatCard label="Faturado bruto" value={formatMoney(total)} sub={`Liquido: ${formatMoney(totalNet)}`} />
-        <StatCard label="Recebido" value={formatMoney(totalPaid)} tone="success" />
+      <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+        <Link
+          href={`/pesquisas/${id}/pacientes`}
+          style={{ fontSize: 12, color: "var(--color-muted)" }}
+        >
+          ← Pacientes
+        </Link>
+        <span style={{ fontFamily: "ui-monospace, monospace", fontWeight: 700, fontSize: 16 }}>
+          {subject.subjectCode}
+        </span>
+        <StatusPill status={subject.status} />
       </div>
 
-      <h2 style={{ fontSize: 14, fontWeight: 600, margin: "24px 0 10px" }}>
-        Visitas
-      </h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+        <StatCard
+          label="Visitas concluidas"
+          value={String(subject.visits.filter((v) => v.status === "COMPLETED").length)}
+          sub={`${subject.visits.length} agendadas`}
+          tone="primary"
+        />
+        <StatCard label="Faturado bruto" value={formatMoney(total)} sub={`Liquido: ${formatMoney(totalNet)}`} />
+        <StatCard label="Recebido" value={formatMoney(totalPaid)} tone="success" />
+        <StatCard
+          label="Inclusao"
+          value={formatDate(subject.enrolledAt)}
+          sub={`Random: ${formatDate(subject.randomizedAt)}`}
+        />
+      </div>
+
+      <h2 style={{ fontSize: 14, fontWeight: 600, margin: "24px 0 10px" }}>Visitas</h2>
       <Card padding={0}>
         <table style={{ width: "100%", fontSize: 13 }}>
           <thead>
@@ -95,9 +111,7 @@ export default async function SubjectDetail({
                   <div style={{ fontWeight: 600 }}>{l.budgetItem.name}</div>
                   {l.description ? <div style={{ fontSize: 11, color: "var(--color-muted)" }}>{l.description}</div> : null}
                 </Td>
-                <Td align="center">
-                  <span className="pill pill-info">{kindLabel(l.budgetItem.kind)}</span>
-                </Td>
+                <Td align="center"><span className="pill pill-info">{kindLabel(l.budgetItem.kind)}</span></Td>
                 <Td align="right" mono>{formatMoney(l.grossAmount)}</Td>
                 <Td align="right" mono>{formatMoney(l.holdbackAmount)}</Td>
                 <Td align="right" mono bold>{formatMoney(l.netAmount)}</Td>

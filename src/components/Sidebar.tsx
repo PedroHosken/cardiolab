@@ -5,23 +5,13 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   FlaskConical,
-  ListChecks,
-  Users,
-  CalendarClock,
-  Receipt,
-  Layers,
   ScrollText,
 } from "lucide-react";
 
 const items = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/pesquisas", label: "Pesquisas", icon: FlaskConical },
-  { href: "/orcamento", label: "Catalogo de Itens", icon: ListChecks },
-  { href: "/pacientes", label: "Pacientes", icon: Users },
-  { href: "/visitas", label: "Visitas", icon: CalendarClock },
-  { href: "/lancamentos", label: "Lancamentos", icon: Receipt },
-  { href: "/lotes", label: "Lotes / Faturas", icon: Layers },
-  { href: "/checklist", label: "Checklist Negociacao", icon: ScrollText },
+  { href: "/checklist", label: "Checklist (modelo)", icon: ScrollText },
 ];
 
 export function Sidebar() {
@@ -87,7 +77,7 @@ export function Sidebar() {
           Cardresearch
         </div>
         <div>Belo Horizonte / MG</div>
-        <div style={{ marginTop: 6 }}>v0.1.0 (MVP)</div>
+        <div style={{ marginTop: 6 }}>v0.2.0 (MVP)</div>
       </div>
     </aside>
   );

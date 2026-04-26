@@ -1,22 +1,25 @@
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/PageHeader";
 import { Card, StatCard, Th, Td } from "@/components/Card";
 import { formatMoney, kindLabel, methodLabel } from "@/lib/format";
 
-export default async function OrcamentoPage({
+export default async function OrcamentoStudyPage({
+  params,
   searchParams,
 }: {
-  searchParams: Promise<{ studyId?: string; kind?: string }>;
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ kind?: string }>;
 }) {
+  const { id } = await params;
   const sp = await searchParams;
 
-  const studies = await prisma.study.findMany({
+  const study = await prisma.study.findUnique({
+    where: { id },
     include: { contractVersions: { where: { isActive: true } } },
   });
-  const studyId = sp.studyId ?? studies[0]?.id;
-  const activeContract =
-    studies.find((s) => s.id === studyId)?.contractVersions[0] ?? null;
+  if (!study) notFound();
 
+  const activeContract = study.contractVersions[0] ?? null;
   const items = activeContract
     ? await prisma.budgetItem.findMany({
         where: { contractVersionId: activeContract.id },
@@ -41,35 +44,9 @@ export default async function OrcamentoPage({
 
   return (
     <>
-      <PageHeader
-        title="Catalogo de Itens Faturaveis"
-        description="Visao do orcamento contratado por versao do contrato. Configuravel por estudo."
-      />
-
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 12, color: "var(--color-muted)" }}>Pesquisa:</span>
-        {studies.map((s) => (
-          <a
-            key={s.id}
-            href={`/orcamento?studyId=${s.id}`}
-            style={{
-              padding: "6px 12px",
-              borderRadius: 6,
-              fontSize: 12,
-              fontWeight: 600,
-              background: s.id === studyId ? "var(--color-primary)" : "var(--color-surface)",
-              color: s.id === studyId ? "white" : "var(--color-foreground)",
-              border: "1px solid var(--color-border)",
-            }}
-          >
-            {s.protocolNumber}
-          </a>
-        ))}
-      </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
         <StatCard
-          label="Itens cadastrados"
+          label="Itens contratados"
           value={String(items.length)}
           sub={`${passThroughCount} pass-through · ${crfCount} CRF auto`}
           tone="primary"
@@ -77,12 +54,12 @@ export default async function OrcamentoPage({
         <StatCard
           label="Total por participante"
           value={formatMoney(totalPerSubject, activeContract?.currency)}
-          sub="Soma das visitas regulares (PER_OCCURRENCE)"
+          sub="Soma das visitas regulares"
         />
         <StatCard
-          label="Itens fixos contratados"
+          label="Itens fixos"
           value={formatMoney(totalContracted, activeContract?.currency)}
-          sub="Start-up + close-out + quantidades"
+          sub="Start-up + close-out + qty"
         />
         <StatCard
           label="Overhead embutido"
@@ -94,7 +71,7 @@ export default async function OrcamentoPage({
       <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "20px 0 10px", flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: "var(--color-muted)", marginRight: 4 }}>Filtrar tipo:</span>
         <a
-          href={`/orcamento?studyId=${studyId}`}
+          href={`/pesquisas/${study.id}/orcamento`}
           style={{
             padding: "5px 10px",
             borderRadius: 6,
@@ -110,7 +87,7 @@ export default async function OrcamentoPage({
         {kinds.map((k) => (
           <a
             key={k}
-            href={`/orcamento?studyId=${studyId}&kind=${k}`}
+            href={`/pesquisas/${study.id}/orcamento?kind=${k}`}
             style={{
               padding: "5px 10px",
               borderRadius: 6,
@@ -141,19 +118,17 @@ export default async function OrcamentoPage({
             </tr>
           </thead>
           <tbody>
-            {filteredItems.map((i) => (
+            {filteredItems.length === 0 ? (
+              <tr>
+                <Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td>
+              </tr>
+            ) : filteredItems.map((i) => (
               <tr key={i.id}>
                 <Td>
                   <div style={{ fontWeight: 600 }}>{i.name}</div>
-                  {i.description ? (
-                    <div style={{ fontSize: 11, color: "var(--color-muted)", marginTop: 2 }}>
-                      {i.description}
-                    </div>
-                  ) : null}
+                  {i.description ? <div style={{ fontSize: 11, color: "var(--color-muted)" }}>{i.description}</div> : null}
                 </Td>
-                <Td align="center">
-                  <span className="pill pill-info">{kindLabel(i.kind)}</span>
-                </Td>
+                <Td align="center"><span className="pill pill-info">{kindLabel(i.kind)}</span></Td>
                 <Td align="center" mono>{methodLabel(i.method)}</Td>
                 <Td align="center" mono>{i.visitTemplate?.code ?? "-"}</Td>
                 <Td align="right" mono>{i.defaultQuantity}</Td>

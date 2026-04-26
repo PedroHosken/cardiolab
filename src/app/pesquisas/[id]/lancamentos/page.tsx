@@ -1,6 +1,6 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { PageHeader } from "@/components/PageHeader";
 import { Card, StatCard, Th, Td } from "@/components/Card";
 import { StatusPill } from "@/components/StatusPill";
 import { formatDate, formatMoney, kindLabel } from "@/lib/format";
@@ -15,44 +15,53 @@ const STATUS_FILTERS = [
   "GLOSSED",
 ];
 
-export default async function LancamentosPage({
+export default async function LancamentosStudyPage({
+  params,
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; studyId?: string }>;
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ status?: string }>;
 }) {
+  const { id } = await params;
   const sp = await searchParams;
-  const where: { status?: string; subject?: { studyId: string } } = {};
-  if (sp.status) where.status = sp.status;
-  if (sp.studyId) where.subject = { studyId: sp.studyId };
+  const study = await prisma.study.findUnique({ where: { id } });
+  if (!study) notFound();
+
+  const baseWhere = {
+    OR: [
+      { subject: { studyId: id } },
+      { batch: { studyId: id } },
+    ],
+  };
+
+  const where = sp.status ? { ...baseWhere, status: sp.status } : baseWhere;
 
   const lines = await prisma.billableLine.findMany({
     where,
     include: {
       budgetItem: true,
-      subject: { include: { study: true } },
+      subject: true,
       batch: true,
     },
     orderBy: { occurredAt: "desc" },
   });
 
-  const totalGross = lines.reduce((s, l) => s + l.grossAmount, 0);
-  const totalNet = lines.reduce((s, l) => s + l.netAmount, 0);
-  const totalHold = lines.reduce((s, l) => s + l.holdbackAmount, 0);
+  const allLines = await prisma.billableLine.findMany({
+    where: baseWhere,
+    select: { status: true, grossAmount: true, holdbackAmount: true, netAmount: true },
+  });
 
-  // counts por status (sem filtro)
-  const allLines = await prisma.billableLine.findMany({ select: { status: true } });
   const counts = STATUS_FILTERS.reduce<Record<string, number>>((acc, st) => {
     acc[st] = allLines.filter((l) => l.status === st).length;
     return acc;
   }, {});
 
+  const totalGross = lines.reduce((s, l) => s + l.grossAmount, 0);
+  const totalNet = lines.reduce((s, l) => s + l.netAmount, 0);
+  const totalHold = lines.reduce((s, l) => s + l.holdbackAmount, 0);
+
   return (
     <>
-      <PageHeader
-        title="Lancamentos faturaveis"
-        description="Todas as linhas geradas pelo motor de faturamento. Filtre por status para preparar lotes."
-      />
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
         <StatCard label="Linhas filtradas" value={String(lines.length)} />
         <StatCard label="Bruto" value={formatMoney(totalGross)} />
@@ -63,7 +72,7 @@ export default async function LancamentosPage({
       <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "20px 0 10px", flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: "var(--color-muted)", marginRight: 4 }}>Status:</span>
         <a
-          href="/lancamentos"
+          href={`/pesquisas/${id}/lancamentos`}
           style={{
             padding: "5px 10px",
             borderRadius: 6,
@@ -79,7 +88,7 @@ export default async function LancamentosPage({
         {STATUS_FILTERS.map((st) => (
           <a
             key={st}
-            href={`/lancamentos?status=${st}`}
+            href={`/pesquisas/${id}/lancamentos?status=${st}`}
             style={{
               padding: "5px 10px",
               borderRadius: 6,
@@ -100,7 +109,6 @@ export default async function LancamentosPage({
           <thead>
             <tr>
               <Th>Data</Th>
-              <Th>Estudo</Th>
               <Th>Paciente</Th>
               <Th>Item</Th>
               <Th align="center">Tipo</Th>
@@ -112,13 +120,19 @@ export default async function LancamentosPage({
             </tr>
           </thead>
           <tbody>
-            {lines.map((l) => (
+            {lines.length === 0 ? (
+              <tr>
+                <Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td>
+              </tr>
+            ) : lines.map((l) => (
               <tr key={l.id}>
                 <Td mono>{formatDate(l.occurredAt)}</Td>
-                <Td mono>{l.subject?.study.protocolNumber ?? "-"}</Td>
                 <Td mono>
                   {l.subject ? (
-                    <Link href={`/pacientes/${l.subject.id}`} style={{ color: "var(--color-primary)" }}>
+                    <Link
+                      href={`/pesquisas/${id}/pacientes/${l.subject.id}`}
+                      style={{ color: "var(--color-primary)" }}
+                    >
                       {l.subject.subjectCode}
                     </Link>
                   ) : "-"}
@@ -127,15 +141,16 @@ export default async function LancamentosPage({
                   <div style={{ fontWeight: 600 }}>{l.budgetItem.name}</div>
                   {l.description ? <div style={{ fontSize: 11, color: "var(--color-muted)" }}>{l.description}</div> : null}
                 </Td>
-                <Td align="center">
-                  <span className="pill pill-info">{kindLabel(l.budgetItem.kind)}</span>
-                </Td>
+                <Td align="center"><span className="pill pill-info">{kindLabel(l.budgetItem.kind)}</span></Td>
                 <Td align="right" mono>{formatMoney(l.grossAmount, l.currency)}</Td>
                 <Td align="right" mono>{formatMoney(l.holdbackAmount, l.currency)}</Td>
                 <Td align="right" mono bold>{formatMoney(l.netAmount, l.currency)}</Td>
                 <Td mono>
                   {l.batch ? (
-                    <Link href={`/lotes/${l.batch.id}`} style={{ color: "var(--color-primary)" }}>
+                    <Link
+                      href={`/pesquisas/${id}/lotes/${l.batch.id}`}
+                      style={{ color: "var(--color-primary)" }}
+                    >
                       {l.batch.batchNumber}
                     </Link>
                   ) : "-"}
