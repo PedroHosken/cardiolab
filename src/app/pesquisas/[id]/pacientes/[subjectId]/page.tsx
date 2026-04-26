@@ -4,6 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { Card, StatCard, Th, Td } from "@/components/Card";
 import { StatusPill } from "@/components/StatusPill";
 import { formatDate, formatMoney, kindLabel } from "@/lib/format";
+import {
+  randomizeSubject,
+  markScreenFailure,
+  discontinueSubject,
+  completeSubject,
+} from "../actions";
 
 export default async function SubjectDetail({
   params,
@@ -32,9 +38,13 @@ export default async function SubjectDetail({
     .filter((l) => l.status === "PAID")
     .reduce((s, l) => s + l.netAmount, 0);
 
+  const today = new Date().toISOString().slice(0, 10);
+  const isScreening = subject.status === "SCREENING";
+  const isActive = ["RANDOMIZED", "ACTIVE"].includes(subject.status);
+
   return (
     <>
-      <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <Link
           href={`/pesquisas/${id}/pacientes`}
           style={{ fontSize: 12, color: "var(--color-muted)" }}
@@ -51,76 +61,344 @@ export default async function SubjectDetail({
         <StatCard
           label="Visitas concluidas"
           value={String(subject.visits.filter((v) => v.status === "COMPLETED").length)}
-          sub={`${subject.visits.length} agendadas`}
+          sub={`${subject.visits.length} programadas`}
           tone="primary"
         />
         <StatCard label="Faturado bruto" value={formatMoney(total)} sub={`Liquido: ${formatMoney(totalNet)}`} />
         <StatCard label="Recebido" value={formatMoney(totalPaid)} tone="success" />
         <StatCard
-          label="Inclusao"
+          label="Triagem em"
           value={formatDate(subject.enrolledAt)}
           sub={`Random: ${formatDate(subject.randomizedAt)}`}
         />
       </div>
 
-      <h2 style={{ fontSize: 14, fontWeight: 600, margin: "24px 0 10px" }}>Visitas</h2>
-      <Card padding={0}>
-        <table style={{ width: "100%", fontSize: 13 }}>
-          <thead>
-            <tr>
-              <Th>Codigo</Th>
-              <Th>Visita</Th>
-              <Th>Data</Th>
-              <Th>Status</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {subject.visits.map((v) => (
-              <tr key={v.id}>
-                <Td bold mono>{v.visitTemplate.code}</Td>
-                <Td>{v.visitTemplate.name}</Td>
-                <Td>{formatDate(v.visitDate)}</Td>
-                <Td><StatusPill status={v.status} /></Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+      {/* Acoes contextuais */}
+      {isScreening ? (
+        <Card>
+          <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--color-muted)", textTransform: "uppercase", marginBottom: 12 }}>
+            Desfecho da triagem
+          </h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <form
+              action={randomizeSubject}
+              style={{
+                padding: 14,
+                border: "1px solid var(--color-success)",
+                borderRadius: 8,
+                background: "#f0fdf4",
+              }}
+            >
+              <input type="hidden" name="studyId" value={id} />
+              <input type="hidden" name="subjectId" value={subject.id} />
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Randomizar paciente</div>
+              <div style={{ fontSize: 11, color: "var(--color-muted)", marginBottom: 10 }}>
+                Programa todas as visitas do protocolo e ativa o paciente para acompanhamento.
+              </div>
+              <label style={{ fontSize: 11, color: "var(--color-muted)" }}>Data da randomizacao</label>
+              <input
+                type="date"
+                name="randomizationDate"
+                defaultValue={today}
+                style={{
+                  width: "100%",
+                  marginTop: 4,
+                  marginBottom: 10,
+                  padding: "7px 10px",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 6,
+                  fontSize: 13,
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  width: "100%",
+                  padding: "9px 14px",
+                  background: "var(--color-success)",
+                  color: "white",
+                  border: 0,
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Randomizar
+              </button>
+            </form>
 
-      <h2 style={{ fontSize: 14, fontWeight: 600, margin: "24px 0 10px" }}>
-        Lancamentos faturaveis
-      </h2>
-      <Card padding={0}>
-        <table style={{ width: "100%", fontSize: 13 }}>
-          <thead>
-            <tr>
-              <Th>Data</Th>
-              <Th>Item</Th>
-              <Th align="center">Tipo</Th>
-              <Th align="right">Bruto</Th>
-              <Th align="right">Holdback</Th>
-              <Th align="right">Liquido</Th>
-              <Th>Status</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {subject.billableLines.map((l) => (
-              <tr key={l.id}>
-                <Td mono>{formatDate(l.occurredAt)}</Td>
-                <Td>
-                  <div style={{ fontWeight: 600 }}>{l.budgetItem.name}</div>
-                  {l.description ? <div style={{ fontSize: 11, color: "var(--color-muted)" }}>{l.description}</div> : null}
-                </Td>
-                <Td align="center"><span className="pill pill-info">{kindLabel(l.budgetItem.kind)}</span></Td>
-                <Td align="right" mono>{formatMoney(l.grossAmount)}</Td>
-                <Td align="right" mono>{formatMoney(l.holdbackAmount)}</Td>
-                <Td align="right" mono bold>{formatMoney(l.netAmount)}</Td>
-                <Td><StatusPill status={l.status} /></Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+            <form
+              action={markScreenFailure}
+              style={{
+                padding: 14,
+                border: "1px solid #fecaca",
+                borderRadius: 8,
+                background: "#fef2f2",
+              }}
+            >
+              <input type="hidden" name="studyId" value={id} />
+              <input type="hidden" name="subjectId" value={subject.id} />
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Falha de triagem</div>
+              <div style={{ fontSize: 11, color: "var(--color-muted)", marginBottom: 10 }}>
+                Encerra triagem. Se houver item SCREEN_FAIL no orcamento, gera lancamento automaticamente.
+              </div>
+              <label style={{ fontSize: 11, color: "var(--color-muted)" }}>Data</label>
+              <input
+                type="date"
+                name="failureDate"
+                defaultValue={today}
+                style={{
+                  width: "100%",
+                  marginTop: 4,
+                  marginBottom: 8,
+                  padding: "7px 10px",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 6,
+                  fontSize: 13,
+                }}
+              />
+              <label style={{ fontSize: 11, color: "var(--color-muted)" }}>Motivo</label>
+              <input
+                name="reason"
+                placeholder="Ex.: criterio de exclusao - clearance < 30"
+                style={{
+                  width: "100%",
+                  marginTop: 4,
+                  marginBottom: 10,
+                  padding: "7px 10px",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 6,
+                  fontSize: 13,
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  width: "100%",
+                  padding: "9px 14px",
+                  background: "var(--color-danger)",
+                  color: "white",
+                  border: 0,
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Marcar falha de triagem
+              </button>
+            </form>
+          </div>
+        </Card>
+      ) : null}
+
+      {isActive ? (
+        <Card>
+          <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--color-muted)", textTransform: "uppercase", marginBottom: 12 }}>
+            Encerramento do paciente
+          </h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <form
+              action={completeSubject}
+              style={{
+                padding: 14,
+                border: "1px solid var(--color-success)",
+                borderRadius: 8,
+                background: "#f0fdf4",
+              }}
+            >
+              <input type="hidden" name="studyId" value={id} />
+              <input type="hidden" name="subjectId" value={subject.id} />
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Concluir pesquisa</div>
+              <div style={{ fontSize: 11, color: "var(--color-muted)", marginBottom: 10 }}>
+                Use quando o paciente cumpriu todas as visitas do protocolo.
+              </div>
+              <label style={{ fontSize: 11, color: "var(--color-muted)" }}>Data de conclusao</label>
+              <input
+                type="date"
+                name="exitDate"
+                defaultValue={today}
+                style={{
+                  width: "100%",
+                  marginTop: 4,
+                  marginBottom: 10,
+                  padding: "7px 10px",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 6,
+                  fontSize: 13,
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  width: "100%",
+                  padding: "9px 14px",
+                  background: "var(--color-success)",
+                  color: "white",
+                  border: 0,
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Marcar como concluido
+              </button>
+            </form>
+
+            <form
+              action={discontinueSubject}
+              style={{
+                padding: 14,
+                border: "1px solid #fecaca",
+                borderRadius: 8,
+                background: "#fef2f2",
+              }}
+            >
+              <input type="hidden" name="studyId" value={id} />
+              <input type="hidden" name="subjectId" value={subject.id} />
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Descontinuar</div>
+              <div style={{ fontSize: 11, color: "var(--color-muted)", marginBottom: 10 }}>
+                Encerra a participacao antes do previsto. Visitas pendentes sao canceladas.
+              </div>
+              <label style={{ fontSize: 11, color: "var(--color-muted)" }}>Data de saida</label>
+              <input
+                type="date"
+                name="exitDate"
+                defaultValue={today}
+                style={{
+                  width: "100%",
+                  marginTop: 4,
+                  marginBottom: 8,
+                  padding: "7px 10px",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 6,
+                  fontSize: 13,
+                }}
+              />
+              <label style={{ fontSize: 11, color: "var(--color-muted)" }}>Motivo</label>
+              <input
+                name="reason"
+                placeholder="Ex.: AE serio, retirada de consentimento"
+                style={{
+                  width: "100%",
+                  marginTop: 4,
+                  marginBottom: 10,
+                  padding: "7px 10px",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: 6,
+                  fontSize: 13,
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  width: "100%",
+                  padding: "9px 14px",
+                  background: "var(--color-danger)",
+                  color: "white",
+                  border: 0,
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Descontinuar
+              </button>
+            </form>
+          </div>
+        </Card>
+      ) : null}
+
+      {subject.notes ? (
+        <Card>
+          <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--color-muted)", textTransform: "uppercase", marginBottom: 8 }}>
+            Anotacoes
+          </h3>
+          <pre
+            style={{
+              fontFamily: "inherit",
+              fontSize: 13,
+              whiteSpace: "pre-wrap",
+              margin: 0,
+              color: "var(--color-foreground)",
+            }}
+          >
+            {subject.notes}
+          </pre>
+        </Card>
+      ) : null}
+
+      {subject.visits.length > 0 ? (
+        <>
+          <h2 style={{ fontSize: 14, fontWeight: 600, margin: "24px 0 10px" }}>
+            Visitas programadas
+          </h2>
+          <Card padding={0}>
+            <table style={{ width: "100%", fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <Th>Codigo</Th>
+                  <Th>Visita</Th>
+                  <Th>Data</Th>
+                  <Th>Status</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {subject.visits.map((v) => (
+                  <tr key={v.id}>
+                    <Td bold mono>{v.visitTemplate.code}</Td>
+                    <Td>{v.visitTemplate.name}</Td>
+                    <Td>{formatDate(v.visitDate)}</Td>
+                    <Td><StatusPill status={v.status} /></Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        </>
+      ) : null}
+
+      {subject.billableLines.length > 0 ? (
+        <>
+          <h2 style={{ fontSize: 14, fontWeight: 600, margin: "24px 0 10px" }}>
+            Lancamentos faturaveis
+          </h2>
+          <Card padding={0}>
+            <table style={{ width: "100%", fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <Th>Data</Th>
+                  <Th>Item</Th>
+                  <Th align="center">Tipo</Th>
+                  <Th align="right">Bruto</Th>
+                  <Th align="right">Holdback</Th>
+                  <Th align="right">Liquido</Th>
+                  <Th>Status</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {subject.billableLines.map((l) => (
+                  <tr key={l.id}>
+                    <Td mono>{formatDate(l.occurredAt)}</Td>
+                    <Td>
+                      <div style={{ fontWeight: 600 }}>{l.budgetItem.name}</div>
+                      {l.description ? <div style={{ fontSize: 11, color: "var(--color-muted)" }}>{l.description}</div> : null}
+                    </Td>
+                    <Td align="center"><span className="pill pill-info">{kindLabel(l.budgetItem.kind)}</span></Td>
+                    <Td align="right" mono>{formatMoney(l.grossAmount)}</Td>
+                    <Td align="right" mono>{formatMoney(l.holdbackAmount)}</Td>
+                    <Td align="right" mono bold>{formatMoney(l.netAmount)}</Td>
+                    <Td><StatusPill status={l.status} /></Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        </>
+      ) : null}
     </>
   );
 }
