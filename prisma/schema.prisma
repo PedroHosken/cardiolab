@@ -1,0 +1,284 @@
+// Cardiolab Trials - Prisma Schema
+// Modulo de faturamento de pesquisa clinica
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS (representados como String em SQLite, com validacao na aplicacao)
+// =============================================================================
+// BudgetItemKind:    VISIT | SCREEN_FAIL | PHONE | VIRTUAL | HOME | UNSCHEDULED
+//                    | START_UP | CLOSE_OUT | PASS_THROUGH | CRF_TRIGGERED
+//                    | SUBSTUDY | PHARMACY | OTHER
+// BudgetMethod:      PER_OCCURRENCE | AMOUNT | QUANTITY | AS_INCURRED
+// SubjectStatus:     SCREENING | SCREEN_FAIL | RANDOMIZED | ACTIVE | DISCONTINUED | COMPLETED
+// VisitStatus:       SCHEDULED | COMPLETED | MISSED | CANCELLED
+// LineStatus:        DRAFT | READY | IN_BATCH | INVOICED | PAID | HELD | GLOSSED | WRITTEN_OFF
+// BatchStatus:       DRAFT | SUBMITTED | PARTIALLY_PAID | PAID | DISPUTED | CANCELLED
+
+// =============================================================================
+// ORGANIZACOES
+// =============================================================================
+
+model Sponsor {
+  id        String   @id @default(cuid())
+  name      String
+  country   String?
+  notes     String?
+  studies   Study[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Cro {
+  id        String   @id @default(cuid())
+  name      String
+  country   String?
+  studies   Study[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// PESQUISA / ESTUDO
+// =============================================================================
+
+model Study {
+  id              String   @id @default(cuid())
+  protocolNumber  String   @unique
+  title           String
+  shortTitle      String?
+  phase           String?
+  therapeuticArea String?
+  status          String   @default("ACTIVE") // PLANNING | ACTIVE | ON_HOLD | CLOSED
+  defaultCurrency String   @default("USD")
+
+  sponsorId String
+  sponsor   Sponsor @relation(fields: [sponsorId], references: [id])
+
+  croId String?
+  cro   Cro?    @relation(fields: [croId], references: [id])
+
+  contractVersions ContractVersion[]
+  subjects         Subject[]
+  batches          Batch[]
+  visitTemplates   VisitTemplate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// CONTRATO E EMENDAS (versionado)
+// =============================================================================
+
+model ContractVersion {
+  id              String   @id @default(cuid())
+  versionLabel    String   // "v1", "v2 (Amendment 1)", etc.
+  effectiveDate   DateTime
+  endDate         DateTime?
+  currency        String   @default("USD")
+  overheadPercent Float    @default(0)        // overhead embutido (ex.: 35)
+  holdbackPercent Float    @default(0)        // ex.: 10
+  paymentTerms    String?                     // free text inicial
+  notes           String?
+  isActive        Boolean  @default(true)
+
+  studyId String
+  study   Study  @relation(fields: [studyId], references: [id], onDelete: Cascade)
+
+  budgetItems BudgetItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// CATALOGO DE ITENS FATURAVEIS
+// =============================================================================
+
+model BudgetItem {
+  id          String  @id @default(cuid())
+  code        String? // codigo opcional do sponsor
+  name        String
+  description String?
+
+  kind   String // BudgetItemKind
+  method String // BudgetMethod
+
+  unitAmount      Float   // valor unitario (ja com overhead, conforme CTA)
+  defaultQuantity Float   @default(1)
+  currency        String  @default("USD")
+
+  // gatilho
+  autoTrigger Boolean @default(false) // se gera automatico via evento
+  requiresInvoice Boolean @default(false) // pass-through (precisa anexo)
+
+  // visita vinculada (quando aplicavel)
+  visitTemplateId String?
+  visitTemplate   VisitTemplate? @relation(fields: [visitTemplateId], references: [id])
+
+  contractVersionId String
+  contractVersion   ContractVersion @relation(fields: [contractVersionId], references: [id], onDelete: Cascade)
+
+  billableLines BillableLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// CRONOGRAMA DE VISITAS DO PROTOCOLO
+// =============================================================================
+
+model VisitTemplate {
+  id          String  @id @default(cuid())
+  code        String  // ex.: V1, V2/W1, EoT, FU
+  name        String
+  weekOffset  Int?    // semana relativa ao baseline
+  dayOffset   Int?
+  isPhone     Boolean @default(false)
+  isVirtual   Boolean @default(false)
+  isHome      Boolean @default(false)
+  windowMinusDays Int?
+  windowPlusDays  Int?
+  orderIndex  Int     @default(0)
+
+  studyId String
+  study   Study  @relation(fields: [studyId], references: [id], onDelete: Cascade)
+
+  budgetItems  BudgetItem[]
+  subjectVisits SubjectVisit[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// PARTICIPANTES DA PESQUISA
+// =============================================================================
+
+model Subject {
+  id          String    @id @default(cuid())
+  subjectCode String    // ex.: 1076014-001
+  status      String    @default("SCREENING") // SubjectStatus
+  enrolledAt  DateTime?
+  randomizedAt DateTime?
+  exitedAt    DateTime?
+  notes       String?
+
+  studyId String
+  study   Study  @relation(fields: [studyId], references: [id], onDelete: Cascade)
+
+  visits        SubjectVisit[]
+  billableLines BillableLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studyId, subjectCode])
+}
+
+model SubjectVisit {
+  id          String   @id @default(cuid())
+  visitDate   DateTime?
+  status      String   @default("SCHEDULED") // VisitStatus
+  notes       String?
+
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  visitTemplateId String
+  visitTemplate   VisitTemplate @relation(fields: [visitTemplateId], references: [id])
+
+  billableLines BillableLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// LINHA FATURAVEL (motor financeiro)
+// =============================================================================
+
+model BillableLine {
+  id           String   @id @default(cuid())
+  occurredAt   DateTime
+  description  String?
+  quantity     Float    @default(1)
+  grossAmount  Float    // bruto antes de holdback
+  holdbackAmount Float  @default(0)
+  netAmount    Float    // bruto - holdback
+  currency     String   @default("USD")
+  status       String   @default("DRAFT") // LineStatus
+  holdReason   String?
+  invoiceRef   String?  // referencia da NF/recibo (pass-through)
+
+  budgetItemId String
+  budgetItem   BudgetItem @relation(fields: [budgetItemId], references: [id])
+
+  subjectId String?
+  subject   Subject? @relation(fields: [subjectId], references: [id])
+
+  subjectVisitId String?
+  subjectVisit   SubjectVisit? @relation(fields: [subjectVisitId], references: [id])
+
+  batchId String?
+  batch   Batch?  @relation(fields: [batchId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// LOTE DE FATURAMENTO (Batch)
+// =============================================================================
+
+model Batch {
+  id            String    @id @default(cuid())
+  batchNumber   String    @unique // ex.: 2025-08-001
+  referenceMonth String?           // ex.: "2025-08"
+  invoiceNumber String?
+  invoiceDate   DateTime?
+  dueDate       DateTime?
+  paidDate      DateTime?
+  totalGross    Float     @default(0)
+  totalHoldback Float     @default(0)
+  totalNet      Float     @default(0)
+  totalPaid     Float     @default(0)
+  currency      String    @default("USD")
+  status        String    @default("DRAFT") // BatchStatus
+  notes         String?
+
+  studyId String
+  study   Study  @relation(fields: [studyId], references: [id])
+
+  billableLines BillableLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// AUDITORIA (append-only)
+// =============================================================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  entity    String   // ex.: "BillableLine"
+  entityId  String
+  action    String   // CREATE | UPDATE | DELETE | STATUS_CHANGE | BATCH_PAY
+  actor     String?  // usuario (quando houver auth)
+  before    String?  // JSON
+  after     String?  // JSON
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+}

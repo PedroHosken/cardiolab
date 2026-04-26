@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #f7f8fa;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f3f4f6;
+  --color-border: #e5e7eb;
+  --color-foreground: #0f172a;
+  --color-muted: #64748b;
+  --color-primary: #0e7490;
+  --color-primary-foreground: #ffffff;
+  --color-success: #16a34a;
+  --color-warning: #ca8a04;
+  --color-danger: #dc2626;
+  --color-info: #2563eb;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  text-align: left;
+}
+
+/* Status pill colors */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  background: #e2e8f0;
+  color: #334155;
+  white-space: nowrap;
+}
+.pill-success { background: #dcfce7; color: #166534; }
+.pill-warning { background: #fef3c7; color: #92400e; }
+.pill-danger  { background: #fee2e2; color: #991b1b; }
+.pill-info    { background: #dbeafe; color: #1e40af; }
+.pill-neutral { background: #e2e8f0; color: #334155; }
+.pill-primary { background: #cffafe; color: #155e75; }

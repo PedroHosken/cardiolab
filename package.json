@@ -1,0 +1,38 @@
+{
+  "name": "cardiolab-trials",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cardiolab Trials - Software de gestao de pesquisa clinica (modulo de faturamento)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:reset": "prisma migrate reset --force --skip-seed && npm run db:seed",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.468.0",
+    "next": "^16.2.4",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "tailwind-merge": "^2.5.5",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0-beta.8",
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^4.0.0-beta.8",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
