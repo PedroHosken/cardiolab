@@ -11,6 +11,19 @@ function adv(study: { id: string; wizardStep: number }, target: number) {
 // =============================================================================
 // PASSO 1 - cria/atualiza pesquisa basica
 // =============================================================================
+function parseSubjectCodeSettings(formData: FormData, protocolNumber: string) {
+  let subjectCodePrefix = String(formData.get("subjectCodePrefix") ?? "").trim();
+  if (!subjectCodePrefix) subjectCodePrefix = `${protocolNumber}-`;
+
+  const padRaw = Number.parseInt(String(formData.get("subjectCodePadLength") ?? "3"), 10);
+  const subjectCodePadLength = Math.min(10, Math.max(1, Number.isFinite(padRaw) ? padRaw : 3));
+
+  const nextRaw = Number.parseInt(String(formData.get("subjectCodeNextNumber") ?? "1"), 10);
+  const subjectCodeNextNumber = Math.max(1, Number.isFinite(nextRaw) ? nextRaw : 1);
+
+  return { subjectCodePrefix, subjectCodePadLength, subjectCodeNextNumber };
+}
+
 export async function createDraftStudy(formData: FormData) {
   const protocolNumber = String(formData.get("protocolNumber") ?? "").trim();
   const title = String(formData.get("title") ?? "").trim();
@@ -21,6 +34,11 @@ export async function createDraftStudy(formData: FormData) {
 
   if (!protocolNumber) throw new Error("Numero de protocolo e obrigatorio");
   if (!title) throw new Error("Titulo e obrigatorio");
+
+  const { subjectCodePrefix, subjectCodePadLength, subjectCodeNextNumber } = parseSubjectCodeSettings(
+    formData,
+    protocolNumber
+  );
 
   const exists = await prisma.study.findUnique({ where: { protocolNumber } });
   if (exists) throw new Error("Ja existe pesquisa com este numero de protocolo");
@@ -33,6 +51,9 @@ export async function createDraftStudy(formData: FormData) {
       phase,
       therapeuticArea,
       defaultCurrency,
+      subjectCodePrefix,
+      subjectCodePadLength,
+      subjectCodeNextNumber,
       status: "PLANNING",
       wizardStep: 2,
     },
@@ -54,6 +75,12 @@ export async function updateBasics(formData: FormData) {
   const therapeuticArea = String(formData.get("therapeuticArea") ?? "").trim() || null;
   const defaultCurrency = String(formData.get("defaultCurrency") ?? "USD").trim() || "USD";
   if (!studyId) throw new Error("Pesquisa invalida");
+  if (!protocolNumber) throw new Error("Numero de protocolo e obrigatorio");
+
+  const { subjectCodePrefix, subjectCodePadLength, subjectCodeNextNumber } = parseSubjectCodeSettings(
+    formData,
+    protocolNumber
+  );
 
   const study = await prisma.study.findUnique({ where: { id: studyId } });
   if (!study) throw new Error("Pesquisa nao encontrada");
@@ -67,6 +94,9 @@ export async function updateBasics(formData: FormData) {
       phase,
       therapeuticArea,
       defaultCurrency,
+      subjectCodePrefix,
+      subjectCodePadLength,
+      subjectCodeNextNumber,
       wizardStep: adv(study, 2),
     },
   });
@@ -187,6 +217,12 @@ export async function addVisitTemplate(formData: FormData) {
   const windowMinusDays = parseInt(String(formData.get("windowMinusDays") ?? "0"), 10) || null;
   const windowPlusDays = parseInt(String(formData.get("windowPlusDays") ?? "0"), 10) || null;
 
+  const optionalCheckbox1 = String(formData.get("optionalCheckbox1") ?? "").trim();
+  const optionalCheckbox2 = String(formData.get("optionalCheckbox2") ?? "").trim();
+  const optionalCheckbox3 = String(formData.get("optionalCheckbox3") ?? "").trim();
+  const optionalText1Label = String(formData.get("optionalText1Label") ?? "").trim();
+  const optionalNumber1Label = String(formData.get("optionalNumber1Label") ?? "").trim();
+
   if (!studyId) throw new Error("Pesquisa invalida");
   if (!code || !name) throw new Error("Codigo e nome da visita sao obrigatorios");
 
@@ -195,6 +231,13 @@ export async function addVisitTemplate(formData: FormData) {
     orderBy: { orderIndex: "desc" },
   });
   const orderIndex = (last?.orderIndex ?? -1) + 1;
+
+  const optionalFieldDefs: Array<{ key: string; label: string; type: string }> = [];
+  if (optionalCheckbox1) optionalFieldDefs.push({ key: "chk_1", label: optionalCheckbox1, type: "checkbox" });
+  if (optionalCheckbox2) optionalFieldDefs.push({ key: "chk_2", label: optionalCheckbox2, type: "checkbox" });
+  if (optionalCheckbox3) optionalFieldDefs.push({ key: "chk_3", label: optionalCheckbox3, type: "checkbox" });
+  if (optionalText1Label) optionalFieldDefs.push({ key: "txt_1", label: optionalText1Label, type: "text" });
+  if (optionalNumber1Label) optionalFieldDefs.push({ key: "num_1", label: optionalNumber1Label, type: "number" });
 
   await prisma.visitTemplate.create({
     data: {
@@ -208,6 +251,7 @@ export async function addVisitTemplate(formData: FormData) {
       windowMinusDays,
       windowPlusDays,
       orderIndex,
+      optionalFieldDefs: JSON.stringify(optionalFieldDefs),
     },
   });
 

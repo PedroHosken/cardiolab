@@ -67,6 +67,25 @@ export default async function ConfigurarP4({
             <Field label="Janela + dias">
               <Input name="windowPlusDays" type="number" placeholder="3" />
             </Field>
+            <Field
+              label="Opcional — checkbox 1"
+              hint="Ex.: Dentro da janela do protocolo"
+              span={2}
+            >
+              <Input name="optionalCheckbox1" placeholder="Rotulo (vazio = nao exibe)" />
+            </Field>
+            <Field label="Opcional — checkbox 2">
+              <Input name="optionalCheckbox2" placeholder="Rotulo" />
+            </Field>
+            <Field label="Opcional — checkbox 3">
+              <Input name="optionalCheckbox3" placeholder="Rotulo" />
+            </Field>
+            <Field label="Opcional — texto livre" span={2}>
+              <Input name="optionalText1Label" placeholder="Rotulo de um campo de texto" />
+            </Field>
+            <Field label="Opcional — numero" span={2}>
+              <Input name="optionalNumber1Label" placeholder="Rotulo de um campo numerico (ex.: dias de desvio)" />
+            </Field>
           </FormGrid>
           <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
             <PrimaryButton>+ Adicionar visita</PrimaryButton>

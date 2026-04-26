@@ -59,6 +59,11 @@ model Study {
   status          String   @default("ACTIVE") // PLANNING | ACTIVE | ON_HOLD | CLOSED
   defaultCurrency String   @default("USD")
 
+  // codigo de registro de pacientes (prefixo comum + sequencia crescente)
+  subjectCodePrefix     String @default("") // ex.: "1378-0020-" (geralmente igual ao protocolo + separador)
+  subjectCodeNextNumber Int    @default(1)  // proximo numero a atribuir (001, 002, ...)
+  subjectCodePadLength  Int    @default(3)   // digitos com zero a esquerda (min 1, max 10 na UI)
+
   // wizard de configuracao (estilo Google Ads)
   wizardStep      Int      @default(1)  // 1..6 (6 = pronto para ativar)
   wizardCompleted Boolean  @default(false)
@@ -198,6 +203,9 @@ model VisitTemplate {
   windowPlusDays  Int?
   orderIndex  Int     @default(0)
 
+  // campos opcionais (JSON em texto — SQLite)
+  optionalFieldDefs String @default("[]")
+
   studyId String
   study   Study  @relation(fields: [studyId], references: [id], onDelete: Cascade)
 
@@ -239,6 +247,9 @@ model SubjectVisit {
   visitDate   DateTime?
   status      String   @default("SCHEDULED") // VisitStatus
   notes       String?
+
+  // valores dos opcionais (JSON em texto — SQLite)
+  optionalValues String @default("{}")
 
   subjectId String
   subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)

@@ -10,6 +10,7 @@ import {
   discontinueSubject,
   completeSubject,
 } from "../actions";
+import { SubjectVisitForm } from "@/components/SubjectVisitForm";
 
 export default async function SubjectDetail({
   params,
@@ -334,30 +335,17 @@ export default async function SubjectDetail({
       {subject.visits.length > 0 ? (
         <>
           <h2 style={{ fontSize: 14, fontWeight: 600, margin: "24px 0 10px" }}>
-            Visitas programadas
+            Visitas do paciente
           </h2>
-          <Card padding={0}>
-            <table style={{ width: "100%", fontSize: 13 }}>
-              <thead>
-                <tr>
-                  <Th>Codigo</Th>
-                  <Th>Visita</Th>
-                  <Th>Data</Th>
-                  <Th>Status</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {subject.visits.map((v) => (
-                  <tr key={v.id}>
-                    <Td bold mono>{v.visitTemplate.code}</Td>
-                    <Td>{v.visitTemplate.name}</Td>
-                    <Td>{formatDate(v.visitDate)}</Td>
-                    <Td><StatusPill status={v.status} /></Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
+          <p style={{ fontSize: 12, color: "var(--color-muted)", margin: "0 0 14px" }}>
+            Registre data, se a visita foi realizada, notas e os campos opcionais definidos no cronograma
+            da pesquisa (Passo 4).
+          </p>
+          <div style={{ display: "grid", gap: 14 }}>
+            {subject.visits.map((v) => (
+              <SubjectVisitForm key={v.id} visit={v} studyId={id} subjectId={subject.id} />
+            ))}
+          </div>
         </>
       ) : null}
 

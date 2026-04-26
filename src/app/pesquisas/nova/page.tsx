@@ -78,6 +78,24 @@ export default function NovaPesquisaPage() {
                 <option value="GBP">GBP - Libra</option>
               </Select>
             </Field>
+            <Field
+              label="Prefixo do registro de pacientes"
+              hint="Base comum de todos os codigos nesta pesquisa. Vazio = usa o numero do protocolo + hifen (ex.: 1378-0020-)."
+              span={2}
+            >
+              <Input name="subjectCodePrefix" placeholder="Deixe vazio para usar protocolo + '-'" />
+            </Field>
+            <Field label="Digitos do numero sequencial" hint="Zeros a esquerda (001, 0001...).">
+              <Select name="subjectCodePadLength" defaultValue="3">
+                <option value="2">2 (01, 02...)</option>
+                <option value="3">3 (001, 002...)</option>
+                <option value="4">4 (0001...)</option>
+                <option value="5">5</option>
+              </Select>
+            </Field>
+            <Field label="Proximo numero" hint="Primeiro paciente usara este numero; depois sobe automaticamente.">
+              <Input name="subjectCodeNextNumber" type="number" min={1} defaultValue={1} />
+            </Field>
           </FormGrid>
 
           <div style={{ marginTop: 22, display: "flex", gap: 10, justifyContent: "flex-end" }}>

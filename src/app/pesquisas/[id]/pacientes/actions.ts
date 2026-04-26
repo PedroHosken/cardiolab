@@ -3,18 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { formatSubjectRegistrationCode } from "@/lib/subject-code";
 
 // =============================================================================
-// 1) Adicionar paciente em triagem
+// 1) Adicionar paciente em triagem (codigo = prefixo do estudo + sequencia)
 // =============================================================================
 export async function addSubject(formData: FormData) {
   const studyId = String(formData.get("studyId"));
-  const subjectCode = String(formData.get("subjectCode") ?? "").trim();
   const screeningDate = String(formData.get("screeningDate") ?? "");
   const notes = String(formData.get("notes") ?? "").trim() || null;
 
   if (!studyId) throw new Error("Pesquisa invalida");
-  if (!subjectCode) throw new Error("Codigo do paciente e obrigatorio");
 
   const study = await prisma.study.findUnique({ where: { id: studyId } });
   if (!study) throw new Error("Pesquisa nao encontrada");
@@ -22,29 +21,60 @@ export async function addSubject(formData: FormData) {
     throw new Error("Ative a pesquisa antes de cadastrar pacientes");
   }
 
-  const dup = await prisma.subject.findFirst({
-    where: { studyId, subjectCode },
-  });
-  if (dup) throw new Error(`Paciente ${subjectCode} ja existe nesta pesquisa`);
+  const prefix = (study.subjectCodePrefix ?? "").trim() || `${study.protocolNumber}-`;
+  const pad = Math.min(
+    10,
+    Math.max(1, Math.floor(Number(study.subjectCodePadLength ?? 3)) || 3)
+  );
 
-  const subject = await prisma.subject.create({
-    data: {
-      studyId,
-      subjectCode,
-      status: "SCREENING",
-      enrolledAt: screeningDate ? new Date(screeningDate) : new Date(),
-      notes,
-    },
-  });
+  const subject = await prisma.$transaction(async (tx) => {
+    const locked = await tx.study.findUnique({ where: { id: studyId } });
+    if (!locked) throw new Error("Pesquisa nao encontrada");
 
-  await prisma.auditLog.create({
-    data: {
-      entity: "Subject",
-      entityId: subject.id,
-      action: "CREATE",
-      after: JSON.stringify({ status: "SCREENING", subjectCode }),
-      notes: "Paciente adicionado em triagem",
-    },
+    // Evita NaN no update (ex.: campo ausente no client Prisma antigo ou NULL inesperado no SQLite)
+    let n = Math.max(1, Math.floor(Number(locked.subjectCodeNextNumber ?? 1)) || 1);
+    let subjectCode = formatSubjectRegistrationCode(prefix, n, pad);
+    let guard = 0;
+    while (guard < 5000) {
+      const taken = await tx.subject.findFirst({ where: { studyId, subjectCode } });
+      if (!taken) break;
+      n += 1;
+      subjectCode = formatSubjectRegistrationCode(prefix, n, pad);
+      guard += 1;
+    }
+    if (guard >= 5000) throw new Error("Nao foi possivel gerar codigo unico");
+
+    const nextSeq = n + 1;
+    if (!Number.isFinite(nextSeq) || nextSeq < 1) {
+      throw new Error("Sequencia de registro invalida — rode `npx prisma generate` e reinicie o servidor");
+    }
+
+    const created = await tx.subject.create({
+      data: {
+        studyId,
+        subjectCode,
+        status: "SCREENING",
+        enrolledAt: screeningDate ? new Date(screeningDate) : new Date(),
+        notes,
+      },
+    });
+
+    await tx.study.update({
+      where: { id: studyId },
+      data: { subjectCodeNextNumber: nextSeq },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        entity: "Subject",
+        entityId: created.id,
+        action: "CREATE",
+        after: JSON.stringify({ status: "SCREENING", subjectCode }),
+        notes: "Paciente adicionado em triagem (codigo sequencial)",
+      },
+    });
+
+    return created;
   });
 
   revalidatePath(`/pesquisas/${studyId}/pacientes`);

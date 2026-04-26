@@ -5,6 +5,7 @@ import { Card, StatCard } from "@/components/Card";
 import { PrimaryButton, SecondaryButton } from "@/components/Form";
 import { WizardStepper, buildWizardSteps } from "@/components/WizardSteps";
 import { formatDate, formatMoney } from "@/lib/format";
+import { formatSubjectRegistrationCode } from "@/lib/subject-code";
 import { activateStudy } from "../actions";
 
 export default async function ConfigurarP6({
@@ -97,6 +98,17 @@ export default async function ConfigurarP6({
               <div><strong>Fase:</strong> {study.phase ?? "-"}</div>
               <div><strong>Area:</strong> {study.therapeuticArea ?? "-"}</div>
               <div><strong>Moeda padrao:</strong> {study.defaultCurrency}</div>
+              <div>
+                <strong>Registro de pacientes:</strong>{" "}
+                {formatSubjectRegistrationCode(
+                  study.subjectCodePrefix || `${study.protocolNumber}-`,
+                  study.subjectCodeNextNumber ?? 1,
+                  study.subjectCodePadLength ?? 3
+                )}{" "}
+                <span style={{ color: "var(--color-muted)", fontWeight: 400 }}>
+                  (proximo); prefixo <code style={{ fontSize: 12 }}>{study.subjectCodePrefix || `${study.protocolNumber}-`}</code>
+                </span>
+              </div>
               <div><strong>Patrocinador:</strong> {study.sponsor?.name ?? "-"}</div>
               <div><strong>CRO:</strong> {study.cro?.name ?? "-"}</div>
             </div>

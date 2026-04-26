@@ -67,6 +67,36 @@ export default async function ConfigurarP1({
                 <option value="GBP">GBP</option>
               </Select>
             </Field>
+            <Field
+              label="Prefixo do registro de pacientes"
+              hint="Base comum + 001, 002... Vazio ao salvar = protocolo + hifen."
+              span={2}
+            >
+              <Input
+                name="subjectCodePrefix"
+                defaultValue={study.subjectCodePrefix || ""}
+                placeholder={`Ex.: ${study.protocolNumber}-`}
+              />
+            </Field>
+            <Field label="Digitos do sequencial">
+              <Select
+                name="subjectCodePadLength"
+                defaultValue={String(Math.min(10, Math.max(1, study.subjectCodePadLength || 3)))}
+              >
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </Select>
+            </Field>
+            <Field label="Proximo numero" hint="Proximo codigo ao cadastrar paciente.">
+              <Input
+                name="subjectCodeNextNumber"
+                type="number"
+                min={1}
+                defaultValue={study.subjectCodeNextNumber ?? 1}
+              />
+            </Field>
           </FormGrid>
 
           <div style={{ marginTop: 22, display: "flex", gap: 10, justifyContent: "flex-end" }}>
