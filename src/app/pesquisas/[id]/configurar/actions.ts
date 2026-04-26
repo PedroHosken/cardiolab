@@ -246,9 +246,10 @@ export async function addBudgetItem(formData: FormData) {
   const method = String(formData.get("method") ?? "PER_OCCURRENCE");
   const unitAmount = parseFloat(String(formData.get("unitAmount") ?? "0")) || 0;
   const defaultQuantity = parseFloat(String(formData.get("defaultQuantity") ?? "1")) || 1;
-  const visitTemplateId = String(formData.get("visitTemplateId") ?? "") || null;
   const requiresInvoice = formData.get("requiresInvoice") === "on";
   const autoTrigger = formData.get("autoTrigger") === "on";
+  const appliesToAllVisits = formData.get("appliesToAllVisits") === "on";
+  const visitTemplateIds = formData.getAll("visitTemplateIds").map(String).filter(Boolean);
 
   if (!studyId) throw new Error("Pesquisa invalida");
   if (!name) throw new Error("Nome do item e obrigatorio");
@@ -257,6 +258,18 @@ export async function addBudgetItem(formData: FormData) {
     where: { studyId, isActive: true },
   });
   if (!contract) throw new Error("Cadastre o contrato no Passo 3 antes");
+
+  // Resolve a lista efetiva de visitas
+  let effectiveVisitIds: string[] = [];
+  if (appliesToAllVisits) {
+    const all = await prisma.visitTemplate.findMany({
+      where: { studyId },
+      select: { id: true },
+    });
+    effectiveVisitIds = all.map((v) => v.id);
+  } else {
+    effectiveVisitIds = visitTemplateIds;
+  }
 
   await prisma.budgetItem.create({
     data: {
@@ -268,9 +281,14 @@ export async function addBudgetItem(formData: FormData) {
       unitAmount,
       defaultQuantity,
       currency: contract.currency,
-      visitTemplateId: visitTemplateId || null,
+      // visitTemplateId fica como atalho da primeira visita (compat)
+      visitTemplateId: effectiveVisitIds[0] ?? null,
+      appliesToAllVisits,
       autoTrigger,
       requiresInvoice,
+      visits: {
+        create: effectiveVisitIds.map((id) => ({ visitTemplateId: id })),
+      },
     },
   });
 

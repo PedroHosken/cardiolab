@@ -59,7 +59,7 @@ export default async function StudyLayout({
           {study.shortTitle ?? study.title}
         </h1>
         <div style={{ fontSize: 12, color: "var(--color-muted)", marginTop: 4 }}>
-          {study.sponsor.name}
+          {study.sponsor?.name ?? "Patrocinador nao definido"}
           {study.cro ? ` · CRO pagadora: ${study.cro.name}` : ""}
           {study.phase ? ` · Fase ${study.phase}` : ""}
         </div>

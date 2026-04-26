@@ -82,7 +82,7 @@ export default async function StudyOverviewPage({
           </h3>
           <div style={{ marginTop: 10, fontSize: 13, lineHeight: 1.7 }}>
             <div><strong>Protocolo:</strong> <span style={{ fontFamily: "ui-monospace, monospace" }}>{study.protocolNumber}</span></div>
-            <div><strong>Patrocinador:</strong> {study.sponsor.name}</div>
+            <div><strong>Patrocinador:</strong> {study.sponsor?.name ?? "-"}</div>
             {study.cro ? <div><strong>CRO pagadora:</strong> {study.cro.name}</div> : null}
             <div><strong>Fase:</strong> {study.phase ?? "-"}</div>
             <div><strong>Area:</strong> {study.therapeuticArea ?? "-"}</div>

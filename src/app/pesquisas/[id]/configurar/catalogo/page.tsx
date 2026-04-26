@@ -12,6 +12,7 @@ import {
   DangerButton,
 } from "@/components/Form";
 import { WizardStepper, buildWizardSteps } from "@/components/WizardSteps";
+import { VisitMultiSelect } from "@/components/VisitMultiSelect";
 import { formatMoney, kindLabel, methodLabel } from "@/lib/format";
 import {
   addBudgetItem,
@@ -54,7 +55,10 @@ export default async function ConfigurarP5({
   const items = contract
     ? await prisma.budgetItem.findMany({
         where: { contractVersionId: contract.id },
-        include: { visitTemplate: true },
+        include: {
+          visitTemplate: true,
+          visits: { include: { visitTemplate: true } },
+        },
         orderBy: [{ kind: "asc" }, { name: "asc" }],
       })
     : [];
@@ -152,17 +156,7 @@ export default async function ConfigurarP5({
             <Field label="Quantidade padrao">
               <Input name="defaultQuantity" type="number" step="0.01" defaultValue="1" />
             </Field>
-            <Field label="Visita vinculada (opcional)">
-              <Select name="visitTemplateId" defaultValue="">
-                <option value="">Nenhuma</option>
-                {visits.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.code} - {v.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Descricao" span={2}>
+            <Field label="Descricao">
               <Input name="description" placeholder="Ex.: paga apos coleta de eco-stress" />
             </Field>
             <Field label="Flags">
@@ -174,6 +168,26 @@ export default async function ConfigurarP5({
                   <input type="checkbox" name="requiresInvoice" /> Pass-through (NF)
                 </label>
               </div>
+            </Field>
+            <Field
+              label="Visitas vinculadas"
+              hint="Marque uma, varias ou todas. Itens fixos (start-up, close-out, pass-through) podem ficar sem visitas."
+              span={2}
+            >
+              <VisitMultiSelect
+                options={visits.map((v) => ({
+                  id: v.id,
+                  code: v.code,
+                  name: v.name,
+                  type: v.isPhone
+                    ? "Telefone"
+                    : v.isVirtual
+                    ? "Virtual"
+                    : v.isHome
+                    ? "Domiciliar"
+                    : "Presencial",
+                }))}
+              />
             </Field>
           </FormGrid>
           <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
@@ -192,7 +206,7 @@ export default async function ConfigurarP5({
               <Th>Item</Th>
               <Th align="center">Tipo</Th>
               <Th align="center">Metodo</Th>
-              <Th align="center">Visita</Th>
+              <Th>Visitas vinculadas</Th>
               <Th align="right">Qtd</Th>
               <Th align="right">Valor</Th>
               <Th></Th>
@@ -203,26 +217,59 @@ export default async function ConfigurarP5({
               <tr>
                 <Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td>
               </tr>
-            ) : items.map((i) => (
-              <tr key={i.id}>
-                <Td>
-                  <div style={{ fontWeight: 600 }}>{i.name}</div>
-                  {i.description ? <div style={{ fontSize: 11, color: "var(--color-muted)" }}>{i.description}</div> : null}
-                </Td>
-                <Td align="center"><span className="pill pill-info">{kindLabel(i.kind)}</span></Td>
-                <Td align="center" mono>{methodLabel(i.method)}</Td>
-                <Td align="center" mono>{i.visitTemplate?.code ?? "-"}</Td>
-                <Td align="right" mono>{i.defaultQuantity}</Td>
-                <Td align="right" mono bold>{formatMoney(i.unitAmount, i.currency)}</Td>
-                <Td align="center">
-                  <form action={removeBudgetItem}>
-                    <input type="hidden" name="studyId" value={study.id} />
-                    <input type="hidden" name="itemId" value={i.id} />
-                    <DangerButton>Remover</DangerButton>
-                  </form>
-                </Td>
-              </tr>
-            ))}
+            ) : items.map((i) => {
+              const visitCodes = i.visits.map((vv) => vv.visitTemplate.code);
+              const fallback = i.visitTemplate?.code;
+              const display = i.appliesToAllVisits
+                ? "TODAS"
+                : visitCodes.length > 0
+                ? visitCodes.join(", ")
+                : fallback ?? "-";
+              return (
+                <tr key={i.id}>
+                  <Td>
+                    <div style={{ fontWeight: 600 }}>{i.name}</div>
+                    {i.description ? <div style={{ fontSize: 11, color: "var(--color-muted)" }}>{i.description}</div> : null}
+                  </Td>
+                  <Td align="center"><span className="pill pill-info">{kindLabel(i.kind)}</span></Td>
+                  <Td align="center" mono>{methodLabel(i.method)}</Td>
+                  <Td>
+                    {i.appliesToAllVisits ? (
+                      <span className="pill pill-success">TODAS as visitas</span>
+                    ) : visitCodes.length > 0 ? (
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {visitCodes.map((c) => (
+                          <span
+                            key={c}
+                            style={{
+                              fontFamily: "ui-monospace, monospace",
+                              fontSize: 11,
+                              padding: "2px 6px",
+                              background: "#ecfeff",
+                              color: "var(--color-primary)",
+                              borderRadius: 4,
+                            }}
+                          >
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span style={{ color: "var(--color-muted)", fontSize: 12 }}>{display}</span>
+                    )}
+                  </Td>
+                  <Td align="right" mono>{i.defaultQuantity}</Td>
+                  <Td align="right" mono bold>{formatMoney(i.unitAmount, i.currency)}</Td>
+                  <Td align="center">
+                    <form action={removeBudgetItem}>
+                      <input type="hidden" name="studyId" value={study.id} />
+                      <input type="hidden" name="itemId" value={i.id} />
+                      <DangerButton>Remover</DangerButton>
+                    </form>
+                  </Td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </Card>

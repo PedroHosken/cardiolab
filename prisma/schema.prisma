@@ -146,9 +146,15 @@ model BudgetItem {
   autoTrigger Boolean @default(false) // se gera automatico via evento
   requiresInvoice Boolean @default(false) // pass-through (precisa anexo)
 
-  // visita vinculada (quando aplicavel)
+  // se true, item se aplica a todas as visitas atuais e futuras do estudo
+  appliesToAllVisits Boolean @default(false)
+
+  // visita "primaria" vinculada - mantido para compat e atalho de exibicao
   visitTemplateId String?
   visitTemplate   VisitTemplate? @relation(fields: [visitTemplateId], references: [id])
+
+  // multi-visit: item pode estar vinculado a varias visitas
+  visits BudgetItemVisit[]
 
   contractVersionId String
   contractVersion   ContractVersion @relation(fields: [contractVersionId], references: [id], onDelete: Cascade)
@@ -157,6 +163,22 @@ model BudgetItem {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// JOIN: BudgetItem <-> VisitTemplate (multi-visit)
+// =============================================================================
+
+model BudgetItemVisit {
+  budgetItemId    String
+  budgetItem      BudgetItem    @relation(fields: [budgetItemId], references: [id], onDelete: Cascade)
+  visitTemplateId String
+  visitTemplate   VisitTemplate @relation(fields: [visitTemplateId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([budgetItemId, visitTemplateId])
+  @@index([visitTemplateId])
 }
 
 // =============================================================================
@@ -179,8 +201,9 @@ model VisitTemplate {
   studyId String
   study   Study  @relation(fields: [studyId], references: [id], onDelete: Cascade)
 
-  budgetItems  BudgetItem[]
-  subjectVisits SubjectVisit[]
+  budgetItems       BudgetItem[]
+  budgetItemLinks   BudgetItemVisit[]
+  subjectVisits     SubjectVisit[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
