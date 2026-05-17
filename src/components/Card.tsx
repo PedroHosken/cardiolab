@@ -98,11 +98,13 @@ export function Td({
   align = "left",
   bold,
   mono,
+  style,
 }: {
   children?: ReactNode;
   align?: "left" | "right" | "center";
   bold?: boolean;
   mono?: boolean;
+  style?: CSSProperties;
 }) {
   return (
     <td
@@ -113,6 +115,7 @@ export function Td({
         fontWeight: bold ? 600 : 400,
         fontFamily: mono ? "ui-monospace, SFMono-Regular, monospace" : undefined,
         verticalAlign: "top",
+        ...style,
       }}
     >
       {children}

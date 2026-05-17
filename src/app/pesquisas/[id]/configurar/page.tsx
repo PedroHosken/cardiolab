@@ -78,16 +78,20 @@ export default async function ConfigurarP1({
                 placeholder={`Ex.: ${study.protocolNumber}-`}
               />
             </Field>
-            <Field label="Digitos do sequencial">
-              <Select
+            <Field
+              label="Digitos do numero sequencial"
+              hint="Informe a quantidade desejada (1 a 15). Ex.: 3 → 001; 6 → 000001."
+            >
+              <Input
                 name="subjectCodePadLength"
-                defaultValue={String(Math.min(10, Math.max(1, study.subjectCodePadLength || 3)))}
-              >
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-              </Select>
+                type="number"
+                min={1}
+                max={15}
+                step={1}
+                defaultValue={study.subjectCodePadLength || 3}
+                placeholder="Ex.: 3"
+                required
+              />
             </Field>
             <Field label="Proximo numero" hint="Proximo codigo ao cadastrar paciente.">
               <Input

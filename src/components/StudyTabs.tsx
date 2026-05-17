@@ -11,6 +11,7 @@ import {
   Layers,
   ScrollText,
   Settings,
+  Banknote,
 } from "lucide-react";
 
 export function StudyTabs({ studyId }: { studyId: string }) {
@@ -23,6 +24,7 @@ export function StudyTabs({ studyId }: { studyId: string }) {
     { href: `${base}/visitas`, label: "Visitas", icon: CalendarClock },
     { href: `${base}/lancamentos`, label: "Lancamentos", icon: Receipt },
     { href: `${base}/lotes`, label: "Lotes", icon: Layers },
+    { href: `${base}/financeiro`, label: "Financeiro", icon: Banknote },
     { href: `${base}/checklist`, label: "Checklist", icon: ScrollText },
     { href: `${base}/configurar`, label: "Configuracoes", icon: Settings },
   ];

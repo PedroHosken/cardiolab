@@ -62,7 +62,7 @@ model Study {
   // codigo de registro de pacientes (prefixo comum + sequencia crescente)
   subjectCodePrefix     String @default("") // ex.: "1378-0020-" (geralmente igual ao protocolo + separador)
   subjectCodeNextNumber Int    @default(1)  // proximo numero a atribuir (001, 002, ...)
-  subjectCodePadLength  Int    @default(3)   // digitos com zero a esquerda (min 1, max 10 na UI)
+  subjectCodePadLength  Int    @default(3)   // digitos com zero a esquerda (min 1, max 15 na UI)
 
   // wizard de configuracao (estilo Google Ads)
   wizardStep      Int      @default(1)  // 1..6 (6 = pronto para ativar)
@@ -121,13 +121,63 @@ model ContractVersion {
   notes           String?
   isActive        Boolean  @default(true)
 
+  // pagamentos: frequencia + data inicial (referencia para alertas)
+  paymentFrequency String?  // MONTHLY | BIMONTHLY | QUARTERLY | QUADRIMONTHLY | SEMIANNUAL | ANNUAL
+  paymentStartDate DateTime?
+
   studyId String
   study   Study  @relation(fields: [studyId], references: [id], onDelete: Cascade)
 
   budgetItems BudgetItem[]
+  adjustments ContractAdjustment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// REAJUSTES DO CONTRATO (anual/renegociacao) - aplicados a partir de uma data
+// =============================================================================
+// kind: ANNUAL_INDEX (multiplicador aplicado a TODOS os itens)
+//      | RENEGOTIATION (preco novo por item, ver BudgetItemPrice)
+model ContractAdjustment {
+  id            String   @id @default(cuid())
+  contractVersionId String
+  contractVersion   ContractVersion @relation(fields: [contractVersionId], references: [id], onDelete: Cascade)
+
+  kind          String   // ANNUAL_INDEX | RENEGOTIATION
+  effectiveFrom DateTime
+  indexLabel    String?  // ex.: "IPCA 2026", "IGPM"
+  multiplier    Float?   // ex.: 1.0438 (4,38%) - usado quando kind=ANNUAL_INDEX
+  notes         String?
+
+  itemPrices BudgetItemPrice[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contractVersionId, effectiveFrom])
+}
+
+// =============================================================================
+// HISTORICO DE PRECOS POR ITEM (preco vigente por data)
+// =============================================================================
+model BudgetItemPrice {
+  id            String   @id @default(cuid())
+  budgetItemId  String
+  budgetItem    BudgetItem @relation(fields: [budgetItemId], references: [id], onDelete: Cascade)
+
+  effectiveFrom DateTime
+  unitAmount    Float
+  reason        String?  // texto livre (ex.: "Reajuste IPCA 2026", "Renegociacao Amend2")
+  reasonKind    String   @default("INITIAL") // INITIAL | ANNUAL_INDEX | RENEGOTIATION | MANUAL
+
+  adjustmentId  String?
+  adjustment    ContractAdjustment? @relation(fields: [adjustmentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([budgetItemId, effectiveFrom])
 }
 
 // =============================================================================
@@ -151,6 +201,10 @@ model BudgetItem {
   autoTrigger Boolean @default(false) // se gera automatico via evento
   requiresInvoice Boolean @default(false) // pass-through (precisa anexo)
 
+  // se true, item esta vinculado a visitas (a relacao real esta em BudgetItemVisit, configurada na pagina da visita)
+  // se false, item e "fora de visita" (start-up, close-out, pass-through, etc.) e e tratado em passo proprio
+  boundToVisit Boolean @default(true)
+
   // se true, item se aplica a todas as visitas atuais e futuras do estudo
   appliesToAllVisits Boolean @default(false)
 
@@ -165,6 +219,7 @@ model BudgetItem {
   contractVersion   ContractVersion @relation(fields: [contractVersionId], references: [id], onDelete: Cascade)
 
   billableLines BillableLine[]
+  prices        BudgetItemPrice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -192,15 +247,17 @@ model BudgetItemVisit {
 
 model VisitTemplate {
   id          String  @id @default(cuid())
-  code        String  // ex.: V1, V2/W1, EoT, FU
+  code        String  // codigo de visita (ex.: V1, V2/W1, EoT, FU)
   name        String
-  weekOffset  Int?    // semana relativa ao baseline
-  dayOffset   Int?
+  visitKind   String  @default("FOLLOWUP") // SCREENING | RANDOMIZATION | FOLLOWUP
+  weekOffset  Int?    // legado - mantido para nao quebrar dados antigos
+  dayOffset   Int?    // dias contados a partir da randomizacao (negativo = triagem; 0 = randomizacao; positivo = seguimento)
   isPhone     Boolean @default(false)
   isVirtual   Boolean @default(false)
   isHome      Boolean @default(false)
-  windowMinusDays Int?
-  windowPlusDays  Int?
+  windowDays      Int? // janela +/- N dias (substitui windowMinus/Plus)
+  windowMinusDays Int? // legado
+  windowPlusDays  Int? // legado
   orderIndex  Int     @default(0)
 
   // campos opcionais (JSON em texto — SQLite)

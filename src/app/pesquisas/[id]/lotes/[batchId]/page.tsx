@@ -81,7 +81,7 @@ export default async function BatchDetail({
           <div><strong>Mes ref.:</strong> {batch.referenceMonth ?? "-"}</div>
           <div><strong>Moeda:</strong> {batch.currency}</div>
           <div><strong>Emitido em:</strong> {formatDate(batch.createdAt)}</div>
-          <div><strong>NF:</strong> {batch.invoiceRef ?? "-"}</div>
+          <div><strong>NF:</strong> {batch.invoiceNumber ?? "-"}</div>
           <div><strong>Pago em:</strong> {formatDate(batch.paidDate)}</div>
         </div>
       </Card>

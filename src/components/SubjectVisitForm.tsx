@@ -7,6 +7,8 @@ import {
   summarizeOptionalValues,
   type VisitOptionalFieldDef,
 } from "@/lib/visit-optional";
+import { visitKindLabel, visitWindow } from "@/lib/visit-kind";
+import { formatDateMed } from "@/lib/format";
 import type { SubjectVisit, VisitTemplate } from "@prisma/client";
 
 type VisitWithTemplate = SubjectVisit & { visitTemplate: VisitTemplate };
@@ -28,6 +30,9 @@ export function SubjectVisitForm({
 
   const optionalSummary =
     defs.length > 0 ? summarizeOptionalValues(defs, values) : "";
+
+  // Janela do protocolo calculada a partir da data agendada
+  const window = visit.visitDate ? visitWindow(new Date(visit.visitDate), visit.visitTemplate.windowDays) : null;
 
   return (
     <form
@@ -56,10 +61,21 @@ export function SubjectVisitForm({
         <div>
           <div style={{ fontFamily: "ui-monospace, monospace", fontWeight: 700, fontSize: 14 }}>
             {visit.visitTemplate.code}
+            <span style={{ fontFamily: "inherit", fontSize: 11, color: "var(--color-muted)", marginLeft: 8 }}>
+              · {visitKindLabel(visit.visitTemplate.visitKind)}
+            </span>
           </div>
           <div style={{ fontSize: 13, color: "var(--color-foreground)", marginTop: 2 }}>
             {visit.visitTemplate.name}
           </div>
+          {visit.visitDate ? (
+            <div style={{ fontSize: 11, color: "var(--color-muted)", marginTop: 4 }}>
+              Programada para <strong>{formatDateMed(visit.visitDate)}</strong>
+              {window ? (
+                <> · Janela: {formatDateMed(window.start)} a {formatDateMed(window.end)}</>
+              ) : null}
+            </div>
+          ) : null}
           {optionalSummary ? (
             <div style={{ fontSize: 11, color: "var(--color-muted)", marginTop: 4 }}>
               {optionalSummary}

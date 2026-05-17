@@ -89,8 +89,8 @@ export function buildWizardSteps(studyId: string): WizardStep[] {
     { id: "1", label: "Pesquisa", href: `/pesquisas/${studyId}/configurar` },
     { id: "2", label: "Patrocinador", href: `/pesquisas/${studyId}/configurar/patrocinador` },
     { id: "3", label: "Contrato", href: `/pesquisas/${studyId}/configurar/contrato` },
-    { id: "4", label: "Cronograma", href: `/pesquisas/${studyId}/configurar/cronograma` },
-    { id: "5", label: "Catalogo", href: `/pesquisas/${studyId}/configurar/catalogo` },
+    { id: "4", label: "Catalogo", href: `/pesquisas/${studyId}/configurar/catalogo` },
+    { id: "5", label: "Cronograma", href: `/pesquisas/${studyId}/configurar/cronograma` },
     { id: "6", label: "Revisao", href: `/pesquisas/${studyId}/configurar/revisao` },
   ];
 }

@@ -13,6 +13,7 @@ import {
 } from "@/components/Form";
 import { WizardStepper, buildWizardSteps } from "@/components/WizardSteps";
 import { addVisitTemplate, removeVisitTemplate, finishVisitsStep } from "../actions";
+import { VISIT_KIND_OPTIONS, visitKindLabel } from "@/lib/visit-kind";
 
 export default async function ConfigurarP4({
   params,
@@ -25,35 +26,60 @@ export default async function ConfigurarP4({
 
   const visits = await prisma.visitTemplate.findMany({
     where: { studyId: study.id },
-    orderBy: { orderIndex: "asc" },
+    orderBy: [{ dayOffset: "asc" }, { orderIndex: "asc" }],
+    include: { budgetItemLinks: true },
   });
 
   const steps = buildWizardSteps(study.id);
 
   return (
     <>
-      <WizardStepper steps={steps} currentId="4" />
+      <WizardStepper steps={steps} currentId="5" />
 
       <Card>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Passo 4 - Cronograma de visitas</h2>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Passo 5 - Cronograma de visitas</h2>
         <p style={{ fontSize: 12, color: "var(--color-muted)", margin: "6px 0 18px" }}>
-          Cadastre todas as visitas previstas no protocolo. Cada visita pode depois receber valor faturavel
-          no Passo 5. Voce pode adicionar mais visitas a qualquer momento.
+          Cadastre as visitas do protocolo. Cada visita pode ser <strong>Triagem</strong>,{" "}
+          <strong>Randomizacao</strong> ou <strong>Seguimento</strong>. O <strong>tempo de seguimento</strong>{" "}
+          conta em dias a partir da randomizacao (negativo = triagem; 0 = randomizacao; positivo = seguimento).
+          Apos randomizar um paciente, o sistema gera automaticamente as datas de todas as visitas.
         </p>
 
         <form action={addVisitTemplate}>
           <input type="hidden" name="studyId" value={study.id} />
           <FormGrid cols={3}>
-            <Field label="Codigo" required hint="Ex.: V1, V2/W1, EoT, FU">
+            <Field
+              label="Tipo de visita"
+              required
+              hint="Triagem (antes da randomizacao), Randomizacao (visita zero) ou Seguimento."
+            >
+              <Select name="visitKind" defaultValue="FOLLOWUP" required>
+                {VISIT_KIND_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Codigo de visita" required hint="Ex.: V1, V2/W1, EoT, FU">
               <Input name="code" placeholder="V1" required />
             </Field>
             <Field label="Nome / descricao" required>
               <Input name="name" placeholder="Visita de baseline / randomizacao" required />
             </Field>
-            <Field label="Semana relativa">
-              <Input name="weekOffset" type="number" placeholder="0" />
+            <Field
+              label="Tempo de seguimento (dias)"
+              required
+              hint="Triagem: NEGATIVO (ex.: -28). Randomizacao: 0 (preenchido automaticamente). Seguimento: positivo."
+            >
+              <Input
+                name="dayOffset"
+                type="number"
+                step="1"
+                placeholder="Ex.: -28 (triagem) | 0 (randomizacao) | 84 (semana 12)"
+              />
             </Field>
-            <Field label="Tipo">
+            <Field label="Tipo de atendimento">
               <Select name="visitType" defaultValue="in_person">
                 <option value="in_person">Presencial</option>
                 <option value="phone">Telefone</option>
@@ -61,16 +87,16 @@ export default async function ConfigurarP4({
                 <option value="home">Domiciliar</option>
               </Select>
             </Field>
-            <Field label="Janela - dias">
-              <Input name="windowMinusDays" type="number" placeholder="3" />
-            </Field>
-            <Field label="Janela + dias">
-              <Input name="windowPlusDays" type="number" placeholder="3" />
+            <Field
+              label="Janela (dias +/-)"
+              hint="Numero unico. O sistema calcula -N a +N. Ex.: 3 = janela de 6 dias."
+            >
+              <Input name="windowDays" type="number" min={0} placeholder="3" />
             </Field>
             <Field
               label="Opcional — checkbox 1"
               hint="Ex.: Dentro da janela do protocolo"
-              span={2}
+              span={3}
             >
               <Input name="optionalCheckbox1" placeholder="Rotulo (vazio = nao exibe)" />
             </Field>
@@ -80,10 +106,10 @@ export default async function ConfigurarP4({
             <Field label="Opcional — checkbox 3">
               <Input name="optionalCheckbox3" placeholder="Rotulo" />
             </Field>
-            <Field label="Opcional — texto livre" span={2}>
+            <Field label="Opcional — texto livre" span={3}>
               <Input name="optionalText1Label" placeholder="Rotulo de um campo de texto" />
             </Field>
-            <Field label="Opcional — numero" span={2}>
+            <Field label="Opcional — numero" span={3}>
               <Input name="optionalNumber1Label" placeholder="Rotulo de um campo numerico (ex.: dias de desvio)" />
             </Field>
           </FormGrid>
@@ -98,36 +124,47 @@ export default async function ConfigurarP4({
           <table style={{ width: "100%", fontSize: 13 }}>
             <thead>
               <tr>
-                <Th>Codigo</Th>
+                <Th>Tipo</Th>
+                <Th>Codigo de visita</Th>
                 <Th>Nome</Th>
-                <Th align="center">Semana</Th>
-                <Th align="center">Tipo</Th>
+                <Th align="center">Tempo de seguimento</Th>
+                <Th align="center">Atendimento</Th>
                 <Th align="center">Janela</Th>
+                <Th align="center">Itens</Th>
                 <Th></Th>
               </tr>
             </thead>
             <tbody>
               {visits.length === 0 ? (
                 <tr>
-                  <Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td>
+                  <Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td><Td>-</Td>
                 </tr>
               ) : visits.map((v) => (
                 <tr key={v.id}>
+                  <Td>{visitKindLabel(v.visitKind)}</Td>
                   <Td bold mono>{v.code}</Td>
                   <Td>{v.name}</Td>
-                  <Td align="center" mono>{v.weekOffset ?? "-"}</Td>
+                  <Td align="center" mono>
+                    {v.dayOffset == null ? "-" : v.dayOffset === 0 ? "0 (random.)" : v.dayOffset > 0 ? `D+${v.dayOffset}` : `D${v.dayOffset}`}
+                  </Td>
                   <Td align="center">
                     {v.isPhone ? "Telefone" : v.isVirtual ? "Virtual" : v.isHome ? "Domiciliar" : "Presencial"}
                   </Td>
                   <Td align="center" mono>
-                    {v.windowMinusDays || v.windowPlusDays ? `-${v.windowMinusDays ?? 0} / +${v.windowPlusDays ?? 0}` : "-"}
+                    {v.windowDays != null ? `±${v.windowDays}d` : "-"}
                   </Td>
+                  <Td align="center" mono>{v.budgetItemLinks.length}</Td>
                   <Td align="center">
-                    <form action={removeVisitTemplate}>
-                      <input type="hidden" name="studyId" value={study.id} />
-                      <input type="hidden" name="visitId" value={v.id} />
-                      <DangerButton>Remover</DangerButton>
-                    </form>
+                    <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                      <Link href={`/pesquisas/${study.id}/configurar/cronograma/${v.id}`}>
+                        <SecondaryButton>Editar</SecondaryButton>
+                      </Link>
+                      <form action={removeVisitTemplate}>
+                        <input type="hidden" name="studyId" value={study.id} />
+                        <input type="hidden" name="visitId" value={v.id} />
+                        <DangerButton>Remover</DangerButton>
+                      </form>
+                    </div>
                   </Td>
                 </tr>
               ))}
@@ -136,15 +173,12 @@ export default async function ConfigurarP4({
         </Card>
       </div>
 
-      <form
-        action={finishVisitsStep}
-        style={{ marginTop: 18, display: "flex", justifyContent: "space-between" }}
-      >
+      <form action={finishVisitsStep} style={{ marginTop: 22, display: "flex", justifyContent: "space-between" }}>
         <input type="hidden" name="studyId" value={study.id} />
-        <Link href={`/pesquisas/${study.id}/configurar/contrato`}>
-          <SecondaryButton>← Voltar</SecondaryButton>
+        <Link href={`/pesquisas/${study.id}/configurar/catalogo`}>
+          <SecondaryButton>← Voltar (Catalogo)</SecondaryButton>
         </Link>
-        <PrimaryButton>Continuar para Catalogo →</PrimaryButton>
+        <PrimaryButton>Continuar para Revisao →</PrimaryButton>
       </form>
     </>
   );

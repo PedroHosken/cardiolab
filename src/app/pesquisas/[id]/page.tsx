@@ -4,6 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { Card, StatCard, Th, Td } from "@/components/Card";
 import { StatusPill } from "@/components/StatusPill";
 import { formatDate, formatMoney } from "@/lib/format";
+import {
+  buildPaymentPeriods,
+  paymentFrequencyLabel,
+  upcomingPeriod,
+  type PaymentFrequency,
+} from "@/lib/payment-frequency";
 
 export default async function StudyOverviewPage({
   params,
@@ -48,8 +54,75 @@ export default async function StudyOverviewPage({
     .filter((l) => ["READY", "IN_BATCH", "INVOICED"].includes(l.status))
     .reduce((s, l) => s + l.netAmount, 0);
 
+  // Alerta de ciclo de pagamento vencido
+  const today = new Date();
+  let cycleAlert: null | {
+    overdue: boolean;
+    dueDate: Date;
+    label: string;
+    periodIndex: number;
+  } = null;
+  if (
+    activeContract?.paymentFrequency &&
+    activeContract.paymentStartDate
+  ) {
+    const horizon = new Date(today);
+    horizon.setMonth(horizon.getMonth() + 6);
+    const periods = buildPaymentPeriods(
+      activeContract.paymentStartDate,
+      activeContract.paymentFrequency as PaymentFrequency,
+      horizon
+    );
+    const overdue = periods.find((p) => p.dueDate <= today);
+    if (overdue) {
+      cycleAlert = { overdue: true, dueDate: overdue.dueDate, label: paymentFrequencyLabel(activeContract.paymentFrequency), periodIndex: overdue.index };
+    } else {
+      const next = upcomingPeriod(activeContract.paymentStartDate, activeContract.paymentFrequency as PaymentFrequency, today);
+      if (next) cycleAlert = { overdue: false, dueDate: next.dueDate, label: paymentFrequencyLabel(activeContract.paymentFrequency), periodIndex: next.index };
+    }
+  }
+
   return (
     <>
+      {cycleAlert ? (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: "12px 16px",
+            borderRadius: 8,
+            border: `1px solid ${cycleAlert.overdue ? "#fecaca" : "#bae6fd"}`,
+            background: cycleAlert.overdue ? "#fef2f2" : "#f0f9ff",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 10,
+          }}
+        >
+          <div style={{ fontSize: 13 }}>
+            <strong style={{ color: cycleAlert.overdue ? "var(--color-danger)" : "var(--color-primary)" }}>
+              {cycleAlert.overdue ? "Periodo de pagamento vencido" : "Proximo ciclo de pagamento"}
+            </strong>
+            {" — "}
+            Periodo #{cycleAlert.periodIndex} ({cycleAlert.label}){" "}
+            {cycleAlert.overdue ? "venceu em" : "vence em"}{" "}
+            <strong>{formatDate(cycleAlert.dueDate)}</strong>.
+          </div>
+          <Link
+            href={`/pesquisas/${study.id}/financeiro`}
+            style={{
+              padding: "8px 14px",
+              background: cycleAlert.overdue ? "var(--color-danger)" : "var(--color-primary)",
+              color: "white",
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            Listar procedimentos a pagar →
+          </Link>
+        </div>
+      ) : null}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
         <StatCard
           label="Pacientes"

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { formatSubjectRegistrationCode } from "@/lib/subject-code";
+import { clampSubjectCodePadLength, formatSubjectRegistrationCode } from "@/lib/subject-code";
 
 // =============================================================================
 // 1) Adicionar paciente em triagem (codigo = prefixo do estudo + sequencia)
@@ -22,10 +22,7 @@ export async function addSubject(formData: FormData) {
   }
 
   const prefix = (study.subjectCodePrefix ?? "").trim() || `${study.protocolNumber}-`;
-  const pad = Math.min(
-    10,
-    Math.max(1, Math.floor(Number(study.subjectCodePadLength ?? 3)) || 3)
-  );
+  const pad = clampSubjectCodePadLength(Number(study.subjectCodePadLength ?? 3));
 
   const subject = await prisma.$transaction(async (tx) => {
     const locked = await tx.study.findUnique({ where: { id: studyId } });
@@ -101,8 +98,16 @@ export async function randomizeSubject(formData: FormData) {
 
   const visitTemplates = await prisma.visitTemplate.findMany({
     where: { studyId },
-    orderBy: { orderIndex: "asc" },
+    orderBy: [{ dayOffset: "asc" }, { orderIndex: "asc" }],
   });
+
+  // Calcula a data de cada visita: random + dayOffset (em dias)
+  const computeVisitDate = (offset: number | null | undefined): Date | null => {
+    if (offset == null || !Number.isFinite(offset)) return null;
+    const d = new Date(date);
+    d.setDate(d.getDate() + Math.floor(offset));
+    return d;
+  };
 
   await prisma.$transaction(async (tx) => {
     await tx.subject.update({
@@ -110,13 +115,14 @@ export async function randomizeSubject(formData: FormData) {
       data: { status: "RANDOMIZED", randomizedAt: date },
     });
 
-    // Cria SubjectVisits programadas para todas as visitas
+    // Cria SubjectVisits ja com a data calculada a partir do dayOffset
     if (visitTemplates.length > 0) {
       await tx.subjectVisit.createMany({
         data: visitTemplates.map((v) => ({
           subjectId,
           visitTemplateId: v.id,
           status: "SCHEDULED",
+          visitDate: computeVisitDate(v.dayOffset),
         })),
       });
     }

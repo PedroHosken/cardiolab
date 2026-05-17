@@ -21,10 +21,10 @@ export function Field({
   hint?: string;
   required?: boolean;
   children: ReactNode;
-  span?: 1 | 2;
+  span?: 1 | 2 | 3 | 4;
 }) {
   return (
-    <div style={{ gridColumn: span === 2 ? "1 / -1" : undefined, display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ gridColumn: span && span > 1 ? `span ${span}` : undefined, display: "flex", flexDirection: "column", gap: 6 }}>
       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-foreground)" }}>
         {label}
         {required ? <span style={{ color: "var(--color-danger)", marginLeft: 4 }}>*</span> : null}
@@ -50,7 +50,7 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return <select {...rest} style={{ ...baseInputStyle, ...style }} />;
 }
 
-export function FormGrid({ children, cols = 2 }: { children: ReactNode; cols?: 1 | 2 | 3 }) {
+export function FormGrid({ children, cols = 2 }: { children: ReactNode; cols?: 1 | 2 | 3 | 4 }) {
   return (
     <div
       style={{

@@ -16,6 +16,17 @@ export function formatDate(value: Date | string | null | undefined) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(d);
 }
 
+/** Formato medio: DD/MMM/AAAA — ex.: "27/abr/2026". */
+export function formatDateMed(value: Date | string | null | undefined) {
+  if (!value) return "-";
+  const d = typeof value === "string" ? new Date(value) : value;
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(d).replace(/ de /g, "/").replace(/\.$/, "");
+}
+
 export function formatDateTime(value: Date | string | null | undefined) {
   if (!value) return "-";
   const d = typeof value === "string" ? new Date(value) : value;

@@ -85,13 +85,20 @@ export default function NovaPesquisaPage() {
             >
               <Input name="subjectCodePrefix" placeholder="Deixe vazio para usar protocolo + '-'" />
             </Field>
-            <Field label="Digitos do numero sequencial" hint="Zeros a esquerda (001, 0001...).">
-              <Select name="subjectCodePadLength" defaultValue="3">
-                <option value="2">2 (01, 02...)</option>
-                <option value="3">3 (001, 002...)</option>
-                <option value="4">4 (0001...)</option>
-                <option value="5">5</option>
-              </Select>
+            <Field
+              label="Digitos do numero sequencial"
+              hint="Quantidade de digitos com zero a esquerda (1 a 15). Ex.: 3 → 001, 002…; 4 → 0001…"
+            >
+              <Input
+                name="subjectCodePadLength"
+                type="number"
+                min={1}
+                max={15}
+                step={1}
+                defaultValue={3}
+                placeholder="Ex.: 3"
+                required
+              />
             </Field>
             <Field label="Proximo numero" hint="Primeiro paciente usara este numero; depois sobe automaticamente.">
               <Input name="subjectCodeNextNumber" type="number" min={1} defaultValue={1} />

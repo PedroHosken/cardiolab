@@ -13,11 +13,11 @@ import {
 } from "@/components/Form";
 import { WizardStepper, buildWizardSteps } from "@/components/WizardSteps";
 import { setContract } from "../actions";
+import { PAYMENT_FREQUENCIES } from "@/lib/payment-frequency";
 
-const DEFAULT_TERMS = `Pagamento trimestral em USD por wire transfer.
-90% do valor liquido por procedimento concluido + 10% holdback liberado no encerramento.
+const DEFAULT_TERMS = `Pagamento por wire transfer.
 Pass-through itens (ex.: CEP/CONEP, traducoes) faturados conforme NF/recibo.
-Reajuste anual conforme indice acordado.`;
+Notas adicionais sobre prazo de quitacao, reajuste, multas etc.`;
 
 export default async function ConfigurarP3({
   params,
@@ -91,7 +91,38 @@ export default async function ConfigurarP3({
                 defaultValue={contract?.holdbackPercent ?? 10}
               />
             </Field>
-            <Field label="Frequencia / forma de pagamento" hint="Texto livre" span={2}>
+            <Field
+              label="Frequencia de pagamento"
+              required
+              hint="A partir da data de inicio o sistema calcula o proximo vencimento e gera alertas."
+            >
+              <Select name="paymentFrequency" defaultValue={contract?.paymentFrequency ?? "QUARTERLY"}>
+                {PAYMENT_FREQUENCIES.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field
+              label="Data de inicio do ciclo de pagamento"
+              required
+              hint="Referencia (geralmente FPI/site activation). Cada periodo conta a partir dessa data."
+            >
+              <Input
+                name="paymentStartDate"
+                type="date"
+                defaultValue={
+                  contract?.paymentStartDate
+                    ? new Date(contract.paymentStartDate).toISOString().slice(0, 10)
+                    : contract?.effectiveDate
+                    ? new Date(contract.effectiveDate).toISOString().slice(0, 10)
+                    : ""
+                }
+                required
+              />
+            </Field>
+            <Field label="Termos / observacoes adicionais" hint="Texto livre" span={2}>
               <Textarea
                 name="paymentTerms"
                 defaultValue={contract?.paymentTerms ?? DEFAULT_TERMS}
