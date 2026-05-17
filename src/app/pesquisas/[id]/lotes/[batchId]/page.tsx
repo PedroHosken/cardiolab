@@ -8,6 +8,8 @@ import { BatchLineActions } from "@/components/BatchLineActions";
 import { formatDate, formatMoney, kindLabel, statusLabel } from "@/lib/format";
 import { billingModeLabel } from "@/lib/billing-mode";
 import { toProformaLines } from "@/lib/proforma-lines";
+import { buildProformaExportPayload } from "@/lib/build-proforma-export";
+import { ProformaExportToolbar } from "@/components/ProformaExportToolbar";
 import { markBatchPaid, submitBatch } from "../actions";
 
 export default async function BatchDetail({
@@ -36,6 +38,18 @@ export default async function BatchDetail({
     (l) => !["GLOSSED", "WRITTEN_OFF"].includes(l.status)
   );
   const proformaLines = toProformaLines(activeLines);
+  const exportPayload = buildProformaExportPayload({
+    batchNumber: batch.batchNumber,
+    studyTitle: batch.study.shortTitle ?? batch.study.title,
+    protocolNumber: batch.study.protocolNumber,
+    referenceMonth: batch.referenceMonth,
+    currency: batch.currency,
+    billingMode: batch.billingMode,
+    batchStatus: batch.status,
+    submittedAt: batch.submittedAt,
+    proformaNotes: batch.proformaNotes,
+    lines: proformaLines,
+  });
   const isDraft = batch.status === "DRAFT";
   const isSubmitted = batch.status === "SUBMITTED";
   const canPay = ["SUBMITTED", "PARTIALLY_PAID", "DISPUTED"].includes(batch.status);
@@ -177,6 +191,7 @@ export default async function BatchDetail({
       ) : null}
 
       <h2 style={{ fontSize: 14, fontWeight: 600, margin: "24px 0 10px" }}>Proforma invoice</h2>
+      {proformaLines.length > 0 ? <ProformaExportToolbar data={exportPayload} /> : null}
       <ProformaTable
         studyId={id}
         protocolNumber={batch.study.protocolNumber}
