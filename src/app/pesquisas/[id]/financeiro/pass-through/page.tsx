@@ -20,7 +20,10 @@ export default async function PassThroughPage({
 
   const lines = await prisma.billableLine.findMany({
     where: {
-      budgetItem: { contractVersion: { studyId: id }, requiresInvoice: true },
+      budgetItem: {
+        contractVersion: { studyId: id },
+        billingMode: "SITE_PASS_THROUGH",
+      },
     },
     include: {
       subject: true,

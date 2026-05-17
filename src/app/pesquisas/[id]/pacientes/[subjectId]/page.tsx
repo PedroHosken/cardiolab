@@ -36,6 +36,12 @@ export default async function SubjectDetail({
   });
   if (!subject) notFound();
 
+  const contract = await prisma.contractVersion.findFirst({
+    where: { studyId: id, isActive: true },
+    select: { currency: true },
+  });
+  const currency = contract?.currency ?? subject.billableLines[0]?.currency ?? "USD";
+
   const total = subject.billableLines.reduce((s, l) => s + l.grossAmount, 0);
   const totalNet = subject.billableLines.reduce((s, l) => s + l.netAmount, 0);
   const totalPaid = subject.billableLines
@@ -350,12 +356,20 @@ export default async function SubjectDetail({
                   <Th>Visita</Th>
                   <Th>Programacao</Th>
                   <Th align="center">Status</Th>
+                  <Th align="right">Valor total</Th>
+                  <Th align="right">Holdback</Th>
                   <Th align="right">Valor a receber</Th>
                 </tr>
               </thead>
               <tbody>
                 {subject.visits.map((v) => {
                   const done = v.status === "COMPLETED";
+                  const gross = done
+                    ? v.billableLines.reduce((s, l) => s + l.grossAmount, 0)
+                    : null;
+                  const holdback = done
+                    ? v.billableLines.reduce((s, l) => s + l.holdbackAmount, 0)
+                    : null;
                   const receivable = done
                     ? v.billableLines.reduce((s, l) => s + l.netAmount, 0)
                     : null;
@@ -376,8 +390,14 @@ export default async function SubjectDetail({
                       <Td align="center">
                         <VisitStatusPill status={v.status} />
                       </Td>
+                      <Td align="right" mono>
+                        {done && gross != null ? formatMoney(gross, currency) : "—"}
+                      </Td>
+                      <Td align="right" mono>
+                        {done && holdback != null ? formatMoney(holdback, currency) : "—"}
+                      </Td>
                       <Td align="right" mono bold>
-                        {done && receivable != null ? formatMoney(receivable) : "—"}
+                        {done && receivable != null ? formatMoney(receivable, currency) : "—"}
                       </Td>
                     </tr>
                   );

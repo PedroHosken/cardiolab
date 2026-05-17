@@ -58,7 +58,7 @@ export const STATUS_LABELS: Record<string, string> = {
   GLOSSED: "Glosado",
   WRITTEN_OFF: "Baixado",
   // Batch
-  SUBMITTED: "Enviado",
+  SUBMITTED: "Em processo de pagamento",
   PARTIALLY_PAID: "Parcial",
   DISPUTED: "Em disputa",
   // Study

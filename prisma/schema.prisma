@@ -19,6 +19,7 @@ datasource db {
 // BudgetMethod:      PER_OCCURRENCE | AMOUNT | QUANTITY | AS_INCURRED
 // SubjectStatus:     SCREENING | SCREEN_FAIL | RANDOMIZED | ACTIVE | DISCONTINUED | COMPLETED
 // VisitStatus:       SCHEDULED | COMPLETED | MISSED | CANCELLED
+// BillingMode:       SPONSOR_EDC | SITE_PASS_THROUGH
 // LineStatus:        DRAFT | READY | IN_BATCH | INVOICED | PAID | HELD | GLOSSED | WRITTEN_OFF
 // BatchStatus:       DRAFT | SUBMITTED | PARTIALLY_PAID | PAID | DISPUTED | CANCELLED
 
@@ -199,7 +200,9 @@ model BudgetItem {
 
   // gatilho
   autoTrigger Boolean @default(false) // se gera automatico via evento
-  requiresInvoice Boolean @default(false) // pass-through (precisa anexo)
+  requiresInvoice Boolean @default(false) // legado: true = pass-through (use billingMode)
+  // SPONSOR_EDC = patrocinador envia proforma (EDC); SITE_PASS_THROUGH = centro gera proforma/NF
+  billingMode String @default("SPONSOR_EDC")
 
   // se true, item esta vinculado a visitas (a relacao real esta em BudgetItemVisit, configurada na pagina da visita)
   // se false, item e "fora de visita" (start-up, close-out, pass-through, etc.) e e tratado em passo proprio
@@ -335,6 +338,8 @@ model BillableLine {
   currency     String   @default("USD")
   status       String   @default("DRAFT") // LineStatus
   holdReason   String?
+  statusReason String?  // motivo de glosa, suspensao ou baixa
+  statusChangedAt DateTime?
   invoiceRef   String?  // referencia da NF/recibo (pass-through)
 
   budgetItemId String
@@ -371,6 +376,9 @@ model Batch {
   totalPaid     Float     @default(0)
   currency      String    @default("USD")
   status        String    @default("DRAFT") // BatchStatus
+  billingMode   String    @default("SPONSOR_EDC") // SPONSOR_EDC | SITE_PASS_THROUGH
+  submittedAt   DateTime? // proforma/invoice enviado — aguardando pagamento
+  proformaNotes String?
   notes         String?
 
   studyId String

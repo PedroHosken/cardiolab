@@ -13,6 +13,7 @@ import {
 } from "@/components/Form";
 import { WizardStepper, buildWizardSteps } from "@/components/WizardSteps";
 import { formatMoney } from "@/lib/format";
+import { BILLING_MODE_OPTIONS } from "@/lib/billing-mode";
 import { addBudgetItem, removeBudgetItem, finishCatalogStep } from "../actions";
 
 export default async function ConfigurarP4Catalogo({
@@ -95,6 +96,44 @@ export default async function ConfigurarP4Catalogo({
                   <input type="radio" name="boundToVisit" value="no" />
                   <span><strong>Nao</strong> — item fixo / fora de visita</span>
                 </label>
+              </div>
+            </Field>
+
+            <Field
+              label="Modalidade de faturamento"
+              required
+              span={2}
+              hint="EDC: patrocinador informa o proforma. Pass-through: o centro gera e envia o proforma."
+            >
+              <div style={{ display: "grid", gap: 10 }}>
+                {BILLING_MODE_OPTIONS.map((o) => (
+                  <label
+                    key={o.value}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 8,
+                      fontSize: 13,
+                      cursor: "pointer",
+                      padding: "8px 10px",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 6,
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="billingMode"
+                      value={o.value}
+                      defaultChecked={o.value === "SPONSOR_EDC"}
+                    />
+                    <span>
+                      <strong>{o.label}</strong>
+                      <span style={{ display: "block", fontSize: 11, color: "var(--color-muted)" }}>
+                        {o.hint}
+                      </span>
+                    </span>
+                  </label>
+                ))}
               </div>
             </Field>
 

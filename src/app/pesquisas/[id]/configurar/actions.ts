@@ -429,7 +429,10 @@ export async function addBudgetItem(formData: FormData) {
   const kind = boundToVisit ? "VISIT" : "OTHER";
   const method = "PER_OCCURRENCE";
   const defaultQuantity = 1;
-  const requiresInvoice = false;
+  const billingModeRaw = String(formData.get("billingMode") ?? "SPONSOR_EDC");
+  const billingMode =
+    billingModeRaw === "SITE_PASS_THROUGH" ? "SITE_PASS_THROUGH" : "SPONSOR_EDC";
+  const requiresInvoice = billingMode === "SITE_PASS_THROUGH";
   const autoTrigger = false;
   const appliesToAllVisits = false;
   const visitTemplateIds: string[] = [];
@@ -468,6 +471,7 @@ export async function addBudgetItem(formData: FormData) {
       appliesToAllVisits,
       autoTrigger,
       requiresInvoice,
+      billingMode,
       boundToVisit,
       visits: {
         create: effectiveVisitIds.map((id) => ({ visitTemplateId: id })),
