@@ -71,6 +71,17 @@ export function statusLabel(status: string) {
   return STATUS_LABELS[status] ?? status;
 }
 
+/** Rotulo de status especifico para visitas do paciente. */
+export function visitStatusLabel(status: string) {
+  const map: Record<string, string> = {
+    SCHEDULED: "A realizar",
+    COMPLETED: "Realizada",
+    MISSED: "Nao realizada",
+    CANCELLED: "Cancelada",
+  };
+  return map[status] ?? statusLabel(status);
+}
+
 export const KIND_LABELS: Record<string, string> = {
   VISIT: "Visita",
   SCREEN_FAIL: "Falha Triagem",

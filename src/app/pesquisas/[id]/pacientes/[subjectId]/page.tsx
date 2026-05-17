@@ -3,14 +3,14 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Card, StatCard, Th, Td } from "@/components/Card";
 import { StatusPill } from "@/components/StatusPill";
-import { formatDate, formatMoney, kindLabel } from "@/lib/format";
+import { formatDate, formatDateMed, formatMoney, kindLabel } from "@/lib/format";
+import { VisitStatusPill } from "@/components/VisitStatusPill";
 import {
   randomizeSubject,
   markScreenFailure,
   discontinueSubject,
   completeSubject,
 } from "../actions";
-import { SubjectVisitForm } from "@/components/SubjectVisitForm";
 
 export default async function SubjectDetail({
   params,
@@ -22,7 +22,10 @@ export default async function SubjectDetail({
     where: { id: subjectId, studyId: id },
     include: {
       visits: {
-        include: { visitTemplate: true },
+        include: {
+          visitTemplate: true,
+          billableLines: true,
+        },
         orderBy: { visitTemplate: { orderIndex: "asc" } },
       },
       billableLines: {
@@ -338,14 +341,50 @@ export default async function SubjectDetail({
             Visitas do paciente
           </h2>
           <p style={{ fontSize: 12, color: "var(--color-muted)", margin: "0 0 14px" }}>
-            Registre data, se a visita foi realizada, notas e os campos opcionais definidos no cronograma
-            da pesquisa (Passo 4).
+            Clique em uma visita para registrar procedimentos realizados e valores a receber.
           </p>
-          <div style={{ display: "grid", gap: 14 }}>
-            {subject.visits.map((v) => (
-              <SubjectVisitForm key={v.id} visit={v} studyId={id} subjectId={subject.id} />
-            ))}
-          </div>
+          <Card padding={0}>
+            <table style={{ width: "100%", fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <Th>Visita</Th>
+                  <Th>Programacao</Th>
+                  <Th align="center">Status</Th>
+                  <Th align="right">Valor a receber</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {subject.visits.map((v) => {
+                  const done = v.status === "COMPLETED";
+                  const receivable = done
+                    ? v.billableLines.reduce((s, l) => s + l.netAmount, 0)
+                    : null;
+                  return (
+                    <tr key={v.id}>
+                      <Td>
+                        <Link
+                          href={`/pesquisas/${id}/pacientes/${subject.id}/visitas/${v.id}`}
+                          style={{ fontWeight: 600, color: "var(--color-primary)" }}
+                        >
+                          {v.visitTemplate.code}
+                        </Link>
+                        <div style={{ fontSize: 11, color: "var(--color-muted)" }}>
+                          {v.visitTemplate.name}
+                        </div>
+                      </Td>
+                      <Td mono>{formatDateMed(v.visitDate)}</Td>
+                      <Td align="center">
+                        <VisitStatusPill status={v.status} />
+                      </Td>
+                      <Td align="right" mono bold>
+                        {done && receivable != null ? formatMoney(receivable) : "—"}
+                      </Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
         </>
       ) : null}
 
